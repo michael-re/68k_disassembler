@@ -15,6 +15,7 @@ CODE_SEC        EQU         $00001000
 TEXT_SEC        EQU         $00006000
 
 
+
 START:          ORG         CODE_SEC
                 LEA         welcome_msg, A1     * load welcome message
                 JSR         PRINT_STRING_LN     * print welcome message
@@ -23,6 +24,7 @@ MAIN:
                 LEA         STACK, SP           * reset stack pointer
                 JSR         CLEAR_REGISTERS     * set all register values to 0
 
+                * print rules for input
                 LEA         rule_msg, A1
                 JSR         PRINT_STRING_LN
 
@@ -36,11 +38,8 @@ MAIN:
                 JSR         GET_HEX_INPUT
                 MOVE.L      D0, end_addr
 
-                JSR         NUMBER_TO_HEX_STRING
-                LEA         hex_string_buf, A1
-                JSR         PRINT_NEWLINE
-                JSR         PRINT_STRING_LN
-                SIMHALT
+                * disassemble instructions
+                JSR         DISASSEMBLE
 
 PROGRAM_END:
                 JSR         PRINT_NEWLINE       * print empty line
@@ -48,6 +47,131 @@ PROGRAM_END:
                 LEA         goodbye_msg, A1     * load goodbye message
                 JSR         PRINT_STRING_LN     * display goodbye message
                 SIMHALT                         * halt simulator
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       DISASSEMBLE
+*
+* Description:
+*       Disassembles all instructions from start_addr to end_addr by repeatedly
+*       calling DISASSEMBLE_PAGE. After disassembling a page, this subroutine
+*       asks the user to press enter to disassemble another page or any other
+*       key to quit.
+*
+*       When all instructions have been disassembled, it will ask the user
+*       if they want to restart the program or terminate.
+*-------------------------------------------------------------------------------
+DISASSEMBLE:
+                MOVEM.L     A0-A6/D0-D7, -(SP)  * save registers
+                JSR         CLEAR_REGISTERS     * clear registers
+                JSR         CLEAR_SCREEN        * clear screen
+
+                MOVE.L      start_addr, D0      * load start_addr into D0
+                MOVE.L      end_addr, D1        * load end_addr into D1
+
+                MOVEQ       #25, D2             * set loop counter to 25
+
+DIS_LOOP:       CMP.L       D1, D0              * compare start_addr and end_addr
+                BGT         DIS_END             * exit loop if start_addr >= end_addr
+
+                JSR         DISASSEMBLE_PAGE    * call DECODE_INSTRUCTION
+
+                LEA         continue_msg, A1    * load continue message
+                JSR         PRINT_STRING        * print message
+                JSR         READ_CHAR           * get input
+
+                CMP.B       #CR, D1             * check if enter was entered
+                BEQ         DIS_LOOP            * display next page
+                BRA         PROGRAM_END         * terminate
+
+DIS_END:        JSR         RESTART_PROMPT      * ask if user wants to restart or terminate program
+                MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
+                RTS                             * return to caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       DISASSEMBLE_PAGE
+*
+* Description:
+*       Disassembles a single page of instructions and prints them to the
+*       console in the following format:
+*           memory location            op-code            operand
+*
+*       This subroutine calls DECODE_INSTRUCTION in a loop until it has printed
+*       25 instructions or until no more instructions are available to decode.
+*-------------------------------------------------------------------------------
+DISASSEMBLE_PAGE:
+                MOVEM.L     A0-A6/D0-D7, -(SP)  * save registers
+                JSR         CLEAR_REGISTERS     * clear registers
+                JSR         CLEAR_SCREEN        * clear screen
+
+                MOVE.L      start_addr, D0      * load start_addr into D0
+                MOVE.L      end_addr, D1        * load end_addr into D1
+
+                MOVEQ       #25, D2             * set loop counter to 25
+
+DISP_LOOP:      CMP.L       D1, D0              * compare start_addr and end_addr
+                BGE         DISP_END            * exit loop if start_addr >= end_addr
+
+                JSR         DECODE_INSTRUCTION  * call DECODE_INSTRUCTION
+                JSR         PRINT_NEWLINE       * print empty line
+                DBF         D2, DISP_LOOP       * decrement counter and loop if not zero
+
+DISP_END:       MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
+                RTS                             * return to caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       DECODE_INSTRUCTION
+*
+* Description:
+*       Placeholder subroutine that decodes the instruction at start_addr.
+*
+*       Currently, this subroutine prints the address stored in start_addr
+*       and the corresponding word data held at that address in memory.
+*-------------------------------------------------------------------------------
+DECODE_INSTRUCTION:
+                MOVEM.L     A0-A6/D0-D7, -(SP)  * save registers
+                JSR         CLEAR_REGISTERS     * clear registers
+
+                * print current address
+                MOVE.L      start_addr, D0      * load start_addr into D0
+                JSR         LONG_TO_HEX_STRING  * convert address to hex string
+                LEA         long_string_buf, A1 * load address of hex string
+                JSR         PRINT_STRING        * print hex string
+
+                * print "DATA $"
+                JSR         CLEAR_OUTPUT_BUFFER * clear output buffer
+                LEA         output_buffer, A6   * load address of output buffer
+                MOVE.B      #HT, (A6)+          * append tab character
+                MOVE.B      #'D', (A6)+         * append 'D'
+                MOVE.B      #'A', (A6)+         * append 'A'
+                MOVE.B      #'T', (A6)+         * append 'T'
+                MOVE.B      #'A', (A6)+         * append 'A'
+                MOVE.B      #HT, (A6)+          * append tab character
+                MOVE.B      #'$', (A6)+         * append '$'
+
+                LEA         output_buffer, A1   * load address of output buffer
+                JSR         PRINT_STRING        * print "DATA $"
+
+                * load the value at start_addr into D0 and print it
+                MOVE.L      #0, D0              * clear D0
+                MOVE.L      start_addr, A0      * load address of start_addr into A0
+                MOVE.W      (A0), D0            * load word value at start_addr into D0
+                JSR         WORD_TO_HEX_STRING  * convert word value to hex string
+                LEA         word_string_buf, A1 * load address of converted hex string
+                JSR         PRINT_STRING        * print hex string
+
+                ADD.L       #2, start_addr      * increment start_addr by word size
+
+                MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
+                RTS                             * return to the caller
+
 
 
 
@@ -61,111 +185,153 @@ PROGRAM_END:
 *       READ_STRING
 *
 * Description:
-*       Convert null-terminated string in A1 that represents a hex number into
-*       a integer value.
+*       Convert a null-terminated string in A1 that represents a hex number into
+*       an integer value.
 *
 * Parameters:
-*       A1 - pointer to null-terminated string containing hex string to convert.
+*       A1 - pointer to the null-terminated string containing the hex string to
+*            convert.
 *
 * Return Value:
-*       D0 - The integer value hex string represents. On failure, -1 is
+*       D0 - The integer value the hex string represents. On failure, -1 is
 *            returned.
-*       D1 - Returns 0 on success, -1 (FFFFFFFF) on error
+*       D1 - Returns 0 on success, -1 (FFFFFFFF) on error.
 *-------------------------------------------------------------------------------
 STRING_TO_NUMBER:
                 MOVEM.L     A1/D2, -(SP)        * save registers
-                MOVE.L      #0, D0              * hold return value
-                MOVE.L      #0, D1              * hold current string being converted
+                MOVE.L      #0, D0              * holds return value
+                MOVE.L      #0, D1              * holds current string being converted
                 MOVE.L      #8, D2              * loop counter
 
 STN_CONVERT:    CMP.L       #0, D2
                 BEQ         STN_LOOP_END
 
                 LSL.L       #4, D0              * multiply running total by 16 (using shift to prevent sign extension)
-                MOVE.L      #0, D1              * clear value of D1
-                MOVE.B      (A1)+, D1           * load ascii value being converted
+                MOVE.L      #0, D1              * clear the value of D1
+                MOVE.B      (A1)+, D1           * load the ASCII value being converted
 
-                CMP.B       #'0', D1            * check if its less than '0'
+                CMP.B       #'0', D1            * check if it's less than '0'
                 BLT         STN_ERROR           * branch to invalid input
 
-                CMP.B       #'9', D1            * check it its less than '9'
+                CMP.B       #'9', D1            * check if it's less than '9'
                 BLS         ASCII_NUMBER        * it's a hex digit, convert it
 
-                CMP.B       #'A', D1            * check if its less than 'A'
+                CMP.B       #'A', D1            * check if it's less than 'A'
                 BLT         STN_ERROR           * branch to invalid input
 
-                CMP.B       #'F', D1            * check if its less than 'F'
+                CMP.B       #'F', D1            * check if it's less than 'F'
                 BLS         ASCII_C_LETTER      * it's a hex digit, convert it
 
-                CMP.B       #'a', D1            * check if its less than 'a'
+                CMP.B       #'a', D1            * check if it's less than 'a'
                 BLT         STN_ERROR           * branch to invalid input
 
-                CMP.B       #'f', D1            * Check if its less than 'f'
+                CMP.B       #'f', D1            * check if it's less than 'f'
                 BLS         ASCII_L_LETTER      * it's a hex digit, convert it
 
 STN_ERROR:      MOVE.L      #-1, D0             * set D0 to 0xFFFFFFFF
                 MOVE.L      #-1, D1             * set error flag
                 BRA         STN_RETURN
 
-ASCII_NUMBER:   SUB         #'0', D1            * Convert ascii digit to number
+ASCII_NUMBER:   SUB         #'0', D1            * convert the ASCII digit to a number
                 BRA         STN_CONTINUE
 
-ASCII_L_LETTER: SUB         #'a', D1            * Convert ascii lower case letter to number
+ASCII_L_LETTER: SUB         #'a', D1            * convert the ASCII lowercase letter to a number
                 ADD         #10, D1
                 BRA         STN_CONTINUE
 
-ASCII_C_LETTER: SUB         #'A', D1            * Convert ascii capital case letter to number
+ASCII_C_LETTER: SUB         #'A', D1            * convert the ASCII capital letter to a number
                 ADD         #10, D1
                 BRA         STN_CONTINUE
 
-STN_CONTINUE:   ADD         D1, D0              * add current digit to total
-                SUB         #1, D2              * decrement counter
-                BRA         STN_CONVERT
+STN_CONTINUE:   ADD         D1, D0              * add current value to total
+                DBF         D2, STN_CONVERT     * decrement the counter and loop if not zero
 
-STN_LOOP_END:   MOVE.L      #0, D1              * disable error flag
+STN_LOOP_END:   MOVE.L      #0, D1              * disable the error flag
 STN_RETURN:     MOVEM.L     (SP)+, A1/D2        * restore registers
-                RTS                             * return to caller
+                RTS                             * return to the caller
 
 
 
 
 *-------------------------------------------------------------------------------
 * Subroutine:
-*       NUMBER_TO_HEX_STRING
+*       LONG_TO_HEX_STRING
 *
 * Description:
-*       Converts a longword value in D0 into a hexadecimal string representation
-*       and stores it in the hex_string_buf as a null-terminated string.
+*       Converts the longword value in D0 into a hexadecimal string
+*       representation and stores it in the long_string_buf as a
+*       null-terminated string.
 *
 * Parameters:
 *       D0 - Longword value to be converted to a hexadecimal string.
 *
 * Return Value:
-*       hex_string_buf - Null-terminated string of the integer value in D0
+*       long_string_buf - Null-terminated string of the integer value in D0
 *                        as a hexadecimal string.
 *-------------------------------------------------------------------------------
-NUMBER_TO_HEX_STRING:
+LONG_TO_HEX_STRING:
                 MOVEM.L     A1/D0-D2, -(SP)     * save registers
-                MOVE.L      #8, D1              * loop counter
-                MOVE.B      D0, D2              * the current digit to convert
-                LEA         hex_string_buf, A1  * load address of hex buffer
+                MOVE.L      #8, D1              * holds loop counter
+                MOVE.B      D0, D2              * holds current digit to convert
+                LEA         long_string_buf, A1 * load address of the hex buffer (stores return value)
                 ADDA.L      D1, A1              * adjust A1 by the loop counter to fill in reverse order
 
-NTS_CONVERT:    ANDI.L      #$0000000F, D2      * mask out lower 4 bits of D2 to git digit
-                ADD.B       #'0', D2            * convert the digit to ascii hex character
-                CMP.B       #'9', D2            * check if digit is greater than '9'
-                BLS         NTS_STORE           * branch if it's a digit from 0 to 9
-                ADD.B       #7, D2              * adjust the ascii value for letters A to F
-NTS_STORE:      MOVE.B      D2, -(A1)           * store the hex character in the buffer
+LTS_CONVERT:    ANDI.L      #$0000000F, D2      * mask out the lower 4 bits of D2 to get the last digit
+                ADD.B       #'0', D2            * convert the digit to an ASCII hex character
+                CMP.B       #'9', D2            * check if the digit is greater than '9'
+                BLS         LTS_STORE           * branch if it's a digit from 0 to 9
+                ADD.B       #7, D2              * adjust the ASCII value for letters A to F
+LTS_STORE:      MOVE.B      D2, -(A1)           * write hex character to buffer
 
                 LSR.L       #4, D0              * shift right to get the next digit
-                MOVE.L      D0, D2              * copy value to D2
-                DBF         D1, NTS_CONVERT     * decrement loop counter and loop if not zero
+                MOVE.L      D0, D2              * copy the value into D2
+                DBF         D1, LTS_CONVERT     * decrement loop counter and loop if not zero
 
                 MOVE.B      #0, (A1)            * null-terminate hex buffer
 
                 MOVEM.L     (SP)+, A1/D0-D2     * restore registers
-                RTS                             * return to caller
+                RTS                             * return to the caller
+
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       WORD_TO_HEX_STRING
+*
+* Description:
+*       Converts the word value in D0 into a hexadecimal string representation
+*       and stores it in the word_string_buf as a null-terminated string.
+*
+* Parameters:
+*       D0 - Word value to be converted to a hexadecimal string.
+*
+* Return Value:
+*       word_string_buf - Null-terminated string of the integer value in D0
+*                        as a hexadecimal string.
+*-------------------------------------------------------------------------------
+WORD_TO_HEX_STRING:
+                MOVEM.L     A1/D0-D2, -(SP)     * save registers
+                MOVE.L      #4, D1              * holds loop counter
+                MOVE.B      D0, D2              * holds current digit to convert
+                LEA         word_string_buf, A1 * load address of the hex buffer (stores return value)
+                ADDA.L      D1, A1              * adjust A1 by the loop counter to fill in reverse order
+
+WTS_CONVERT:    ANDI.W      #$000F, D2          * mask out the lower 4 bits of D2 to get the last digit
+                ADD.B       #'0', D2            * convert the digit to an ASCII hex character
+                CMP.B       #'9', D2            * check if the digit is greater than '9'
+                BLS         WTS_STORE           * branch if it's a digit from 0 to 9
+                ADD.B       #7, D2              * adjust the ASCII value for letters A to F
+WTS_STORE:      MOVE.B      D2, -(A1)           * write hex character to buffer
+
+                LSR.W       #4, D0              * shift right to get the next digit
+                MOVE.W      D0, D2              * copy the value into D2
+                DBF         D1, WTS_CONVERT     * decrement loop counter and loop if not zero
+
+                MOVE.B      #0, (A1)            * null-terminate hex buffer
+
+                MOVEM.L     (SP)+, A1/D0-D2     * restore registers
+                RTS                             * return to the caller
 
 
 
@@ -183,12 +349,12 @@ NTS_STORE:      MOVE.B      D2, -(A1)           * store the hex character in the
 *       Obtains a hexadecimal input from the user and returns the integer it
 *       represents in D0. This subroutine checks the input to ensure it's valid.
 *
-* Parameters
+* Parameters:
 *       A1 - Pointer to null-terminated string containing prompt asking for
 *            the user input.
 *
 * Return Value:
-*       D0 - The integer value hex string represents.
+*       D0 - The integer value the hex string represents.
 *-------------------------------------------------------------------------------
 GET_HEX_INPUT:
                 MOVEM.L     A1/D1, -(SP)        * save registers
@@ -197,32 +363,32 @@ GET_HEX_INPUT:
 
                 LEA         error_msg_h, A1
                 CMP.W       #8, D1              * check if input is the right length
-                BNE         INVALID_INPUT       * input either too long or too short
+                BNE         INVALID_INPUT       * input is either too long or too short
 
-                LEA         input_buffer, A1    * load in starting address of input
-                JSR         STRING_TO_NUMBER    * convert string input to integer
+                LEA         input_buffer, A1    * load the starting address of the input
+                JSR         STRING_TO_NUMBER    * convert string input to an integer
 
                 LEA         error_msg_h, A1
                 CMP         #0, D1              * check if conversion was successful
-                BNE         INVALID_INPUT       * input was not a hex string
+                BNE         INVALID_INPUT       * input was not a valid hex string
 
                 LEA         error_msg_l, A1
                 CMP.L       #MIN_ADDR, D0       * check starting address range
-                BLT.L       INVALID_INPUT       * starting address out of range
+                BLT.L       INVALID_INPUT       * starting address is out of range
 
                 LEA         error_msg_g, A1
-                MOVE.L      #MAX_ADDR, D1       * load in max value for ending address (too big to fit as immediate data)
+                MOVE.L      #MAX_ADDR, D1       * load the max value for the ending address (too big to fit as immediate data)
                 CMP.L       D1, D0              * check ending address range
-                BGT         INVALID_INPUT       * ending address out of range
+                BGT         INVALID_INPUT       * ending address is out of range
 
-                MOVE.L      D0, D1              * copy converted number into D1
-                AND.L       #1, D1              * check if least significant bit is 0
+                MOVE.L      D0, D1              * copy the converted number into D1
+                AND.L       #1, D1              * check if the least significant bit is 0 (is it even)
 
                 LEA         error_msg_e, A1
                 BNE         INVALID_INPUT       * address is not even
 
                 MOVEM.L     (SP)+, A1/D1        * restore registers
-                RTS                             * return to caller
+                RTS                             * return to the caller
 
 
 
@@ -231,18 +397,18 @@ GET_HEX_INPUT:
 *       INVALID_INPUT
 *
 * Description:
-*       Prints the error message that result in the invalid input stored in A1
+*       Prints the error message that resulted in the invalid input stored in A1
 *       and calls RESTART_PROMPT to check if the user wants to restart the
 *       program or quit.
 *
 * Parameters:
-*       A1 - The error that result in the invalid input.
+*       A1 - The error that resulted in the invalid input.
 *-------------------------------------------------------------------------------
 INVALID_INPUT:
-                JSR         PRINT_STRING_LN
-                LEA         error_msg, A1
-                JSR         PRINT_STRING
-                BRA         RESTART_PROMPT
+                JSR         PRINT_STRING_LN     * print error message
+                LEA         error_msg, A1       * load invalid input message
+                JSR         PRINT_STRING        * print invalid input
+                BRA         RESTART_PROMPT      * ask user if they want to restart
 
 
 
@@ -251,17 +417,18 @@ INVALID_INPUT:
 *       RESTART_PROMPT
 *
 * Description:
-*       Asks the user if they want to retart the program or quit. If the user
-*       enters "R" or "r", this branches to main to restart the program. If they
+*       Asks the user if they want to restart the program or quit. If the user
+*       enters "R" or "r", it branches to MAIN to restart the program. If they
 *       enter "Q" or "q", it branches to PROGRAM_END to terminate the program.
 *
 *-------------------------------------------------------------------------------
 RESTART_PROMPT:
-                LEA         restart_msg, A1
-                JSR         PRINT_STRING
-                JSR         READ_CHAR
+                LEA         restart_msg, A1     * load restart message
+                JSR         PRINT_STRING        * print message to console
+                JSR         READ_CHAR           * get input from user
                 JSR         CLEAR_SCREEN        * clear the screen
 
+                * check user input
                 CMP.B       #'R', D1            * compare user input in D1
                 BEQ         MAIN                * entered 'R' - restart
 
@@ -274,6 +441,7 @@ RESTART_PROMPT:
                 CMP.B       #'q', D1            * compare user input in D1
                 BEQ         PROGRAM_END         * entered 'q' - terminate
 
+                * invalid input, try again
                 LEA         error_msg, A1
                 JSR         PRINT_STRING
                 BRA         RESTART_PROMPT
@@ -290,8 +458,8 @@ RESTART_PROMPT:
 *       returned in D1.W (max 80).
 *
 * Return Value:
-*       D1.W - length of string read from user
-*       A1   - pointer to (input_buffer) null-terminated string read from user.
+*       D1.W - Length of string read from the user.
+*       A1   - Pointer to the null-terminated string (input_buffer) read from the user.
 *-------------------------------------------------------------------------------
 READ_STRING:
                 MOVEM.L     D0, -(SP)           * save registers
@@ -310,10 +478,10 @@ READ_STRING:
 *       READ_CHAR
 *
 * Description:
-*       Reads a single character from the keyboard and store it D1.
+*       Reads a single character from the keyboard and stores it in D1.
 *
 * Return Value:
-*       D1.B - Character read from keyboard.
+*       D1.B - Character read from the keyboard.
 *-------------------------------------------------------------------------------
 READ_CHAR:
                 MOVEM.L     D0, -(SP)           * save registers
@@ -332,7 +500,7 @@ READ_CHAR:
 *       Prints a null-terminated string to the console.
 *
 * Parameters:
-*       A1 - Pointer to null-terminated string to print. If the string is not
+*       A1 - Pointer to the null-terminated string to print. If the string is not
 *            null-terminated, the program will crash.
 *-------------------------------------------------------------------------------
 PRINT_STRING:
@@ -346,15 +514,15 @@ PRINT_STRING:
 
 *-------------------------------------------------------------------------------
 * Subroutine:
-*       PRINT_STRING
+*       PRINT_NEWLINE
 *
 * Description:
-*       Prints empty line to console.
+*       Prints an empty line to the console.
 *-------------------------------------------------------------------------------
 PRINT_NEWLINE:
                 MOVEM.L     A1, -(SP)           * save registers
-                LEA         empty_line, A1      * load address of empty line
-                JSR         PRINT_STRING        * print the empty line
+                LEA         empty_line, A1      * load the address of empty line
+                JSR         PRINT_STRING        * print empty line
                 MOVEM.L     (SP)+, A1           * restore registers
                 RTS                             * return to caller
 
@@ -365,14 +533,13 @@ PRINT_NEWLINE:
 *       PRINT_STRING_LN
 *
 * Description:
-*       Prints a null-terminated string to the console followed by an empty
-*       line.
+*       Prints a null-terminated string to the console followed by an empty line.
 *
 * Parameters:
-*       A1 - Pointer to null-terminated string to print.
+*       A1 - Pointer to the null-terminated string to print.
 *-------------------------------------------------------------------------------
 PRINT_STRING_LN:
-                JSR         PRINT_STRING        * print string in A1
+                JSR         PRINT_STRING        * print the string in A1
                 JSR         PRINT_NEWLINE       * print empty line
                 RTS                             * return to caller
 
@@ -400,14 +567,14 @@ CLEAR_SCREEN:
 *       CLEAR_INPUT_BUFFER
 *
 * Description:
-*       Clears input_buffer by filling it with zeros.
+*       Clears the input_buffer by filling it with zeros.
 *-------------------------------------------------------------------------------
 CLEAR_INPUT_BUFFER:
                 MOVEM.L     A0/D0, -(SP)        * save registers
                 LEA         input_buffer, A0    * load address of input_buffer into A0
                 MOVE.L      #BUFFER_SIZE, D0    * set D0 to the number of bytes to clear
-                CLR.B       (A0)+               * clear the byte and increment A0
-                DBF         D0, *-4             * decrement D0 and loop until it becomes zero
+CIB_CLEAR:      CLR.B       (A0)+               * clear the byte and increment A0
+                DBF         D0, CIB_CLEAR       * decrement D0 and loop until it becomes zero
                 MOVEM.L     (SP)+, A0/D0        * restore registers
                 RTS                             * return to caller
 
@@ -418,14 +585,14 @@ CLEAR_INPUT_BUFFER:
 *       CLEAR_OUTPUT_BUFFER
 *
 * Description:
-*       Clears output_buffer by filling it with zeros.
+*       Clears the output_buffer by filling it with zeros.
 *-------------------------------------------------------------------------------
 CLEAR_OUTPUT_BUFFER:
                 MOVEM.L     A0/D0, -(SP)        * save registers
                 LEA         output_buffer, A0   * load address of output_buffer into A0
                 MOVE.L      #BUFFER_SIZE, D0    * set D0 to the number of bytes to clear
-                CLR.B       (A0)+               * clear the byte and increment A0
-                DBF         D0, *-4             * decrement D0 and loop until it becomes zero
+COB_CLEAR:      CLR.B       (A0)+               * clear the byte and increment A0
+                DBF         D0, COB_CLEAR       * decrement D0 and loop until it becomes zero
                 MOVEM.L     (SP)+, A0/D0        * restore registers
                 RTS                             * return to caller
 
@@ -440,7 +607,7 @@ CLEAR_OUTPUT_BUFFER:
 *       pointer (A7) is left untouched.
 *-------------------------------------------------------------------------------
 CLEAR_REGISTERS:
-                MOVE.L      #0, D0                  * clear data registers
+                MOVE.L      #0, D0              * clear data registers
                 MOVE.L      #0, D1
                 MOVE.L      #0, D2
                 MOVE.L      #0, D3
@@ -448,7 +615,7 @@ CLEAR_REGISTERS:
                 MOVE.L      #0, D5
                 MOVE.L      #0, D6
                 MOVE.L      #0, D7
-                MOVE.L      #0, A0                  * clear address registers
+                MOVE.L      #0, A0              * clear address registers
                 MOVE.L      #0, A1
                 MOVE.L      #0, A2
                 MOVE.L      #0, A3
@@ -465,14 +632,16 @@ CLEAR_REGISTERS:
 *-------------------------------------------------------------------------------
                 ORG         TEXT_SEC
 
-* create global variables to store values
-start_addr      DC.L        $0          * address of the first instruction to disassemble
+* -------------- variables --------------
+start_addr      DC.L        $0          * address of instruction to disassemble
 end_addr        DC.L        $0          * address of the last instruction to disassemble
-curr_addr       DS.L        $0          * address of current instruction being disassembled
 input_buffer    DS.B        BUFFER_SIZE * buffer to store string user input (256 chars)
 output_buffer   DS.B        BUFFER_SIZE * buffer to store string to display (256 chars)
-hex_string_buf  DC.B        '        ', 0
 
+long_string_buf DC.B       '         ', 0
+word_string_buf DC.B       '     ', 0
+
+* -------------- info messages --------------
 rule_msg        DC.B        'When entering the memory address to load in a program,', CR, LF
                 DC.B        'the following restrictions apply:',                      CR, LF, CR, LF, HT
                 DC.B        '1. Address must be in hexadecimal format.',              CR, LF, HT
@@ -486,9 +655,9 @@ welcome_msg     DC.B        'Welcome to the 68K disassembler!',          CR, LF,
 goodbye_msg     DC.B        'Thank you for using the 68K disassembler!', CR, LF, CR, LF,      0
 restart_msg     DC.B        'Do you want to restart or quite? Enter "R" to restart, or "Q" to quit.', CR, LF, HT
                 DC.B        'Enter (R/Q): ', 0
-continue_msg    DC.B        'Press enter to continue or anything else to quit: ', 0
+continue_msg    DC.B        'Press enter to disassemble another page or anything else to quit: ', 0
 
-* error messages
+* -------------- error messages --------------
 error_msg       DC.B        'Error: received invalid input.',                      CR, LF, 0
 error_msg_h     DC.B        'Error: input not valid hex string in longword form.', CR, LF, 0
 error_msg_l     DC.B        'Error: input less than min allowable value.',         CR, LF, 0
