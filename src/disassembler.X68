@@ -37,8 +37,6 @@ MAIN:
                 MOVE.L      D0, end_addr
 
 
-                SIMHALT
-
 PROGRAM_END:
                 JSR         PRINT_NEWLINE       * print empty line
                 JSR         PRINT_NEWLINE       * print empty line
@@ -126,6 +124,7 @@ STN_RETURN:     MOVEM.L     (SP)+, D2-D3/A1     * restore registers
 
 
 
+
 ********************************************************************************
 * I/O subroutines
 ********************************************************************************
@@ -179,13 +178,15 @@ GET_HEX_INPUT:
                 MOVEM.L     (SP)+, A1/D1        * restore registers
                 RTS                             * return to caller
 
+
+
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       INVALID_INPUT
 *
 * Description:
 *       Prints the error message that result in the invalid input stored in A1
-*       and calls RESTART_PROMPT to check if the user wants to retart the
+*       and calls RESTART_PROMPT to check if the user wants to restart the
 *       program or quit.
 *
 * Parameters:
@@ -196,6 +197,7 @@ INVALID_INPUT:
                 LEA         error_msg, A1
                 JSR         PRINT_STRING
                 BRA         RESTART_PROMPT
+
 
 
 *-------------------------------------------------------------------------------
@@ -229,6 +231,7 @@ RESTART_PROMPT:
                 LEA         error_msg, A1
                 JSR         PRINT_STRING
                 BRA         RESTART_PROMPT
+
 
 
 *-------------------------------------------------------------------------------
@@ -381,6 +384,7 @@ CLEAR_OUTPUT_BUFFER:
                 RTS                             * return to caller
 
 
+
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       CLEAR_REGISTERS
@@ -406,6 +410,7 @@ CLEAR_REGISTERS:
                 MOVE.L      #0, A5
                 MOVE.L      #0, A6
                 RTS                             * return to caller
+
 
 
 
