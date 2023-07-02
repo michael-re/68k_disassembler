@@ -28,12 +28,12 @@ MAIN:
 
                 * get starting address from user
                 LEA         start_msg, A1
-                JSR         GET_USERINPUT
+                JSR         GET_HEX_INPUT
                 MOVE.L      D0, start_addr
 
                 * get ending address from user
                 LEA         end_msg, A1
-                JSR         GET_USERINPUT
+                JSR         GET_HEX_INPUT
                 MOVE.L      D0, end_addr
 
 
@@ -43,7 +43,7 @@ PROGRAM_END:
                 JSR         PRINT_NEWLINE       * print empty line
                 JSR         PRINT_NEWLINE       * print empty line
                 LEA         goodbye_msg, A1     * load goodbye message
-                JSR         PRINT_STRING_LN     * goodbye message
+                JSR         PRINT_STRING_LN     * display goodbye message
                 SIMHALT                         * halt simulator
 
 
@@ -53,11 +53,16 @@ PROGRAM_END:
 ********************************************************************************
 
 *-------------------------------------------------------------------------------
-* Subroutine: READ_STRING
-* Description: Convert null-terminated string in A1 that represents a hex number
-*              into an integer value.
+* Subroutine:
+*       READ_STRING
+*
+* Description:
+*       Convert null-terminated string in A1 that represents a hex number into
+*       a integer value.
+*
 * Parameters:
 *       A1 - pointer to null-terminated string containing hex string to convert.
+*
 * Return Value:
 *       D0 - The integer value hex string represents. On failure, -1 is
 *            returned.
@@ -80,22 +85,22 @@ STN_CONVERT:    CMP         D2, D3
                 CMP.B       #'0', D1            * check if its less than '0'
                 BLT         STN_ERROR           * branch to invalid input
 
-                CMP.B       #'9', D1            * Check it its less than '9'
-                BLS         ASCII_NUMBER        * it is an ascii number, convert it
+                CMP.B       #'9', D1            * check it its less than '9'
+                BLS         ASCII_NUMBER        * it's a hex digit, convert it
 
-                CMP.B       #'A', D1            * Check if its less than 'A'
+                CMP.B       #'A', D1            * check if its less than 'A'
                 BLT         STN_ERROR           * branch to invalid input
 
-                CMP.B       #'F', D1            * Check if its less than 'F'
-                BLS         ASCII_C_LETTER      * branch to invalid input
+                CMP.B       #'F', D1            * check if its less than 'F'
+                BLS         ASCII_C_LETTER      * it's a hex digit, convert it
 
-                CMP.B       #'a', D1            * Check if its less than 'a'
+                CMP.B       #'a', D1            * check if its less than 'a'
                 BLT         STN_ERROR           * branch to invalid input
 
                 CMP.B       #'f', D1            * Check if its less than 'f'
-                BLS         ASCII_L_LETTER      * branch to invalid input
+                BLS         ASCII_L_LETTER      * it's a hex digit, convert it
 
-STN_ERROR:      MOVE.L      #-1, D0
+STN_ERROR:      MOVE.L      #-1, D0             * set D0 to 0xFFFFFFFF
                 MOVE.L      #-1, D1             * set error flag
                 BRA         STN_RETURN
 
@@ -110,7 +115,7 @@ ASCII_C_LETTER: SUB         #'A', D1            * Convert ascii capital case let
                 ADD         #10, D1
                 BRA         STN_CONTINUE
 
-STN_CONTINUE:   ADD         D1, D0              * add current
+STN_CONTINUE:   ADD         D1, D0              * add current digit to total
                 ADD         #1, D2              * decrement counter
                 BRA         STN_CONVERT
 
@@ -120,23 +125,28 @@ STN_RETURN:     MOVEM.L     (SP)+, D2-D3/A1     * restore registers
 
 
 
-*-------------------------------------------------------------------------------
-* Subroutine: NUMBER_TO_HEX_STRING
-* Description: Long value in D0 to ascii hex string in A1.
-* Parameters:
-*       D0 - Long value to convert to ascii hex string.
-*       A1 - Pointer to buffer to write string too.
-* Return Value: None
-*-------------------------------------------------------------------------------
-NUMBER_TO_HEX_STRING:
-                RTS                             * return to caller
-
-
 
 ********************************************************************************
 * I/O subroutines
 ********************************************************************************
-GET_USERINPUT:
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       GET_HEX_INPUT
+*
+* Description:
+*       Obtains a hexadecimal input from the user and returns the integer it
+*       represents in D0. This subroutine checks the input to ensure it's valid.
+*
+* Parameters
+*       A1 - Pointer to null-terminated string containing prompt asking for
+*            the user input.
+*
+* Return Value:
+*       D0 - The integer value hex string represents.
+*-------------------------------------------------------------------------------
+GET_HEX_INPUT:
+                MOVEM.L     A1/D1, -(SP)        * save registers
                 JSR         PRINT_STRING        * print prompt for user input
                 JSR         READ_STRING         * read user input
 
@@ -160,9 +170,27 @@ GET_USERINPUT:
                 CMP.L       D1, D0              * check ending address range
                 BGT         INVALID_INPUT       * ending address out of range
 
+                MOVE.L      D0, D1              * copy converted number into D1
+                AND.L       #1, D1              * check if least significant bit is 0
+
+                LEA         error_msg_e, A1
+                BNE         INVALID_INPUT       * address is not even
+
+                MOVEM.L     (SP)+, A1/D1        * restore registers
                 RTS                             * return to caller
 
-
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       INVALID_INPUT
+*
+* Description:
+*       Prints the error message that result in the invalid input stored in A1
+*       and calls RESTART_PROMPT to check if the user wants to retart the
+*       program or quit.
+*
+* Parameters:
+*       A1 - The error that result in the invalid input.
+*-------------------------------------------------------------------------------
 INVALID_INPUT:
                 JSR         PRINT_STRING_LN
                 LEA         error_msg, A1
@@ -170,6 +198,16 @@ INVALID_INPUT:
                 BRA         RESTART_PROMPT
 
 
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       RESTART_PROMPT
+*
+* Description:
+*       Asks the user if they want to retart the program or quit. If the user
+*       enters "R" or "r", this branches to main to restart the program. If they
+*       enter "Q" or "q", it branches to PROGRAM_END to terminate the program.
+*
+*-------------------------------------------------------------------------------
 RESTART_PROMPT:
                 LEA         restart_msg, A1
                 JSR         PRINT_STRING
@@ -194,11 +232,14 @@ RESTART_PROMPT:
 
 
 *-------------------------------------------------------------------------------
-* Subroutine: READ_STRING
-* Description: Reads up to 80 characters from the keyboard and stores the result
-*              in input_buffer as a null-terminated string. The length of the
-*              string is returned in D1.W (max 80).
-* Parameters: None
+* Subroutine:
+*       READ_STRING
+*
+* Description:
+*       Reads up to 80 characters from the keyboard and stores the result in
+*       input_buffer as a null-terminated string. The length of the string is
+*       returned in D1.W (max 80).
+*
 * Return Value:
 *       D1.W - length of string read from user
 *       A1   - pointer to (input_buffer) null-terminated string read from user.
@@ -216,9 +257,12 @@ READ_STRING:
 
 
 *-------------------------------------------------------------------------------
-* Subroutine: READ_CHAR
-* Description: Reads a single character from the keyboard and store it D1.
-* Parameters: None
+* Subroutine:
+*       READ_CHAR
+*
+* Description:
+*       Reads a single character from the keyboard and store it D1.
+*
 * Return Value:
 *       D1.B - Character read from keyboard.
 *-------------------------------------------------------------------------------
@@ -232,12 +276,15 @@ READ_CHAR:
 
 
 *-------------------------------------------------------------------------------
-* Subroutine: PRINT_STRING
-* Description: Prints a null-terminated string to the console.
+* Subroutine:
+*       PRINT_STRING
+*
+* Description:
+*       Prints a null-terminated string to the console.
+*
 * Parameters:
 *       A1 - Pointer to null-terminated string to print. If the string is not
 *            null-terminated, the program will crash.
-* Return Value: None
 *-------------------------------------------------------------------------------
 PRINT_STRING:
                 MOVEM.L     D0, -(SP)           * save registers
@@ -249,10 +296,11 @@ PRINT_STRING:
 
 
 *-------------------------------------------------------------------------------
-* Subroutine: PRINT_STRING
-* Description: Prints empty line to console.
-* Parameters: None
-* Return Value: None
+* Subroutine:
+*       PRINT_STRING
+*
+* Description:
+*       Prints empty line to console.
 *-------------------------------------------------------------------------------
 PRINT_NEWLINE:
                 MOVEM.L     A1, -(SP)           * save registers
@@ -264,12 +312,15 @@ PRINT_NEWLINE:
 
 
 *-------------------------------------------------------------------------------
-* Subroutine: PRINT_STRING_LN
-* Description: Prints a null-terminated string to the console followed by an
-*              empty line.
+* Subroutine:
+*       PRINT_STRING_LN
+*
+* Description:
+*       Prints a null-terminated string to the console followed by an empty
+*       line.
+*
 * Parameters:
 *       A1 - Pointer to null-terminated string to print.
-* Return Value: None
 *-------------------------------------------------------------------------------
 PRINT_STRING_LN:
                 JSR         PRINT_STRING        * print string in A1
@@ -279,10 +330,11 @@ PRINT_STRING_LN:
 
 
 *-------------------------------------------------------------------------------
-* Subroutine: CLEAR_SCREEN
-* Description: Clears the console screen.
-* Parameters: None
-* Return Value: None
+* Subroutine:
+*       CLEAR_SCREEN
+*
+* Description:
+*       Clears the console screen.
 *-------------------------------------------------------------------------------
 CLEAR_SCREEN:
                 MOVEM.L     D0-D1, -(SP)        * save registers
@@ -295,10 +347,11 @@ CLEAR_SCREEN:
 
 
 *-------------------------------------------------------------------------------
-* Subroutine: CLEAR_INPUT_BUFFER
-* Description: Clears input_buffer by filling it with zeros.
-* Parameters: None
-* Return Value: None
+* Subroutine:
+*       CLEAR_INPUT_BUFFER
+*
+* Description:
+*       Clears input_buffer by filling it with zeros.
 *-------------------------------------------------------------------------------
 CLEAR_INPUT_BUFFER:
                 MOVEM.L     A0/D0, -(SP)        * save registers
@@ -312,10 +365,11 @@ CLEAR_INPUT_BUFFER:
 
 
 *-------------------------------------------------------------------------------
-* Subroutine: CLEAR_OUTPUT_BUFFER
-* Description: Clears output_buffer by filling it with zeros.
-* Parameters: None
-* Return Value: None
+* Subroutine:
+*       CLEAR_OUTPUT_BUFFER
+*
+* Description:
+*       Clears output_buffer by filling it with zeros.
 *-------------------------------------------------------------------------------
 CLEAR_OUTPUT_BUFFER:
                 MOVEM.L     A0/D0, -(SP)        * save registers
@@ -328,28 +382,29 @@ CLEAR_OUTPUT_BUFFER:
 
 
 *-------------------------------------------------------------------------------
-* Subroutine: CLEAR_REGISTERS
-* Description: Clears register D0-D7 and A0-A6 by filling them with zeros. The
-*              stack pointer (A7) is left untouched.
-* Parameters: None
-* Return Value: None
+* Subroutine:
+*       CLEAR_REGISTERS
+*
+* Description:
+*       Clears register D0-D7 and A0-A6 by filling them with zeros. The stack
+*       pointer (A7) is left untouched.
 *-------------------------------------------------------------------------------
 CLEAR_REGISTERS:
-                MOVE.L  #0, D0                  * clear data registers
-                MOVE.L  #0, D1
-                MOVE.L  #0, D2
-                MOVE.L  #0, D3
-                MOVE.L  #0, D4
-                MOVE.L  #0, D5
-                MOVE.L  #0, D6
-                MOVE.L  #0, D7
-                MOVE.L  #0, A0                  * clear address registers
-                MOVE.L  #0, A1
-                MOVE.L  #0, A2
-                MOVE.L  #0, A3
-                MOVE.L  #0, A4
-                MOVE.L  #0, A5
-                MOVE.L  #0, A6
+                MOVE.L      #0, D0                  * clear data registers
+                MOVE.L      #0, D1
+                MOVE.L      #0, D2
+                MOVE.L      #0, D3
+                MOVE.L      #0, D4
+                MOVE.L      #0, D5
+                MOVE.L      #0, D6
+                MOVE.L      #0, D7
+                MOVE.L      #0, A0                  * clear address registers
+                MOVE.L      #0, A1
+                MOVE.L      #0, A2
+                MOVE.L      #0, A3
+                MOVE.L      #0, A4
+                MOVE.L      #0, A5
+                MOVE.L      #0, A6
                 RTS                             * return to caller
 
 
@@ -373,7 +428,7 @@ rule_msg        DC.B        'When entering the memory address to load in a progr
                 DC.B        '3. Starting address must less than ending address.',     CR, LF, HT
                 DC.B        '4. Address must be in longword form:   xxxxxxxx',        CR, LF, HT
                 DC.B        '5. Starting address must greater than: 00000000',        CR, LF, HT
-                DC.B        '6. Ending address must be less than:   00FFFFFF.',       CR, LF, HT
+                DC.B        '6. Ending address must be less than:   00FFFFFF.',       CR, LF, 0
 
 welcome_msg     DC.B        'Welcome to the 68K disassembler!',          CR, LF,              0
 goodbye_msg     DC.B        'Thank you for using the 68K disassembler!', CR, LF, CR, LF,      0
