@@ -72,20 +72,31 @@ DISASSEMBLE:
 
                 MOVEQ       #25, D2             * set loop counter to 25
 
-DIS_LOOP:       CMP.L       D1, D0              * compare start_addr and end_addr
-                BGT         DIS_END             * exit loop if start_addr >= end_addr
+DIS_LOOP:       MOVE.L      start_addr, D0      * reload start_addr into D0
+                MOVE.L      end_addr, D1        * reload end_addr into D1
+                CMP.L       D1, D0              * compare start_addr and end_addr
+                BGE         DIS_END             * exit loop if start_addr >= end_addr
 
                 JSR         DISASSEMBLE_PAGE    * call DECODE_INSTRUCTION
 
-                LEA         continue_msg, A1    * load continue message
-                JSR         PRINT_STRING        * print message
-                JSR         READ_CHAR           * get input
+                * check if all intructions have been decoded
+                MOVE.L      start_addr, D0      * reload start_addr into D0
+                MOVE.L      end_addr, D1        * reload end_addr into D1
+                CMP.L       D1, D0              * compare start_addr and end_addr
+                BGE         DIS_END             * exit loop if start_addr >= end_addr
 
-                CMP.B       #CR, D1             * check if enter was entered
-                BEQ         DIS_LOOP            * display next page
-                BRA         PROGRAM_END         * terminate
+                * more intructions left to decode, ask user if they want to continue
+                LEA         continue_msg, A1    * load address of continue message into A1
+                JSR         PRINT_STRING        * print continue message
+                JSR         READ_CHAR           * read character from keyboard
 
-DIS_END:        JSR         RESTART_PROMPT      * ask if user wants to restart or terminate program
+                CMP.B       #CR, D1             * check if user entered "enter"
+                BEQ         DIS_LOOP            * disassemble next page
+
+DIS_END:        LEA         finish_msg, A1      * load address of finish message into A1
+                JSR         PRINT_NEWLINE       * print empty line
+                JSR         PRINT_STRING_LN     * print message with and an empty line
+                JSR         RESTART_PROMPT      * ask if user wants to restart or terminate program
                 MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
                 RTS                             * return to caller
 
@@ -113,7 +124,9 @@ DISASSEMBLE_PAGE:
 
                 MOVEQ       #25, D2             * set loop counter to 25
 
-DISP_LOOP:      CMP.L       D1, D0              * compare start_addr and end_addr
+DISP_LOOP:      MOVE.L      start_addr, D0      * reload start_addr into D0
+                MOVE.L      end_addr, D1        * reload end_addr into D1
+                CMP.L       D1, D0              * compare start_addr and end_addr
                 BGE         DISP_END            * exit loop if start_addr >= end_addr
 
                 JSR         DECODE_INSTRUCTION  * call DECODE_INSTRUCTION
@@ -656,6 +669,7 @@ goodbye_msg     DC.B        'Thank you for using the 68K disassembler!', CR, LF,
 restart_msg     DC.B        'Do you want to restart or quite? Enter "R" to restart, or "Q" to quit.', CR, LF, HT
                 DC.B        'Enter (R/Q): ', 0
 continue_msg    DC.B        'Press enter to disassemble another page or anything else to quit: ', 0
+finish_msg      DC.B        'Finished disassembling instructions!', 0
 
 * -------------- error messages --------------
 error_msg       DC.B        'Error: received invalid input.',                      CR, LF, 0
