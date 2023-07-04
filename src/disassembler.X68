@@ -14,6 +14,7 @@ BUFFER_SIZE     EQU         $00000100
 CODE_SEC        EQU         $00001000
 TEXT_SEC        EQU         $00006000
 
+SHIFT_12        EQU         12
 
 
 START:          ORG         CODE_SEC
@@ -160,7 +161,8 @@ DECODE_INSTRUCTION:
 
                 LEA         JUMP_TABLE_ONE, A0  * load address of first jump table
                 JSR         LOAD_CURRENT_WORD   * load word data of current instruction to decode
-                ANDI.W      #$000F, D0          * isolate the first 4 bits to decode opcode name
+                MOVE.B      #SHIFT_12, D1       * shift 12 bits to the right
+                LSR.W       D1, D0              * isolate the first 4 bits to decode opcode name
 
                 MULU        #6, D0              * form offset
                 JSR         0(A0, D0)           * jump indirect with index
@@ -254,8 +256,41 @@ CODE_0011:
 *           - JSR
 *-------------------------------------------------------------------------------
 CODE_0100:
+                JSR         CLEAR_OUTPUT_BUFFER
+                LEA         output_buffer, A1
+                LEA         output_buffer, A2
+
+                * check if instruction is NOP
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                CMP         #$4E71, D0          * compare against NOP
+                BEQ         MATCHED_NOP
+
+                CMP         #$4E75, D0          * compare against RTS
+                BEQ         MATCHED_RTS
+
+                * couldn't decode word to valid instruction
                 JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                BRA         _0100_RETURN
+
+MATCHED_NOP:
+                * load "NOP" into output buffer
+                MOVE.B      #HT, (A2)+
+                MOVE.B      #'N', (A2)+
+                MOVE.B      #'O', (A2)+
+                MOVE.B      #'P', (A2)+
+                JSR         PRINT_STRING        * print "NOP"
+                BRA         _0100_RETURN        * done decoding NOP
+
+MATCHED_RTS:
+                * load "RTS" into output buffer
+                MOVE.B      #HT, (A2)+
+                MOVE.B      #'R', (A2)+
+                MOVE.B      #'T', (A2)+
+                MOVE.B      #'S', (A2)+
+                JSR         PRINT_STRING        * print "RTS"
+                BRA         _0100_RETURN        * done decoding RTS
+
+_0100_RETURN:   RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
