@@ -79,13 +79,13 @@ DIS_LOOP:       MOVE.L      start_addr, D0      * reload start_addr into D0
 
                 JSR         DISASSEMBLE_PAGE    * call DECODE_INSTRUCTION
 
-                * check if all intructions have been decoded
+                * check if all instructions have been decoded
                 MOVE.L      start_addr, D0      * reload start_addr into D0
                 MOVE.L      end_addr, D1        * reload end_addr into D1
                 CMP.L       D1, D0              * compare start_addr and end_addr
                 BGE         DIS_END             * exit loop if start_addr >= end_addr
 
-                * more intructions left to decode, ask user if they want to continue
+                * more instructions left to decode, ask user if they want to continue
                 LEA         continue_msg, A1    * load address of continue message into A1
                 JSR         PRINT_STRING        * print continue message
                 JSR         READ_CHAR           * read character from keyboard
@@ -158,34 +158,312 @@ DECODE_INSTRUCTION:
                 LEA         long_string_buf, A1 * load address of hex string
                 JSR         PRINT_STRING        * print hex string
 
-                * print "DATA $"
-                JSR         CLEAR_OUTPUT_BUFFER * clear output buffer
-                LEA         output_buffer, A6   * load address of output buffer
-                MOVE.B      #HT, (A6)+          * append tab character
-                MOVE.B      #'D', (A6)+         * append 'D'
-                MOVE.B      #'A', (A6)+         * append 'A'
-                MOVE.B      #'T', (A6)+         * append 'T'
-                MOVE.B      #'A', (A6)+         * append 'A'
-                MOVE.B      #HT, (A6)+          * append tab character
-                MOVE.B      #'$', (A6)+         * append '$'
+                LEA         JUMP_TABLE_ONE, A0  * load address of first jump table
+                JSR         LOAD_CURRENT_WORD   * load word data of current instruction to decode
+                ANDI.W      #$000F, D0          * isolate the first 4 bits to decode opcode name
 
-                LEA         output_buffer, A1   * load address of output buffer
-                JSR         PRINT_STRING        * print "DATA $"
-
-                * load the value at start_addr into D0 and print it
-                MOVE.L      #0, D0              * clear D0
-                MOVE.L      start_addr, A0      * load address of start_addr into A0
-                MOVE.W      (A0), D0            * load word value at start_addr into D0
-                JSR         WORD_TO_HEX_STRING  * convert word value to hex string
-                LEA         word_string_buf, A1 * load address of converted hex string
-                JSR         PRINT_STRING        * print hex string
+                MULU        #6, D0              * form offset
+                JSR         0(A0, D0)           * jump indirect with index
 
                 ADD.L       #2, start_addr      * increment start_addr by word size
 
                 MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
                 RTS                             * return to the caller
 
+JUMP_TABLE_ONE:
+                JMP         CODE_0000
+                JMP         CODE_0001
+                JMP         CODE_0010
+                JMP         CODE_0011
+                JMP         CODE_0100
+                JMP         CODE_0101
+                JMP         CODE_0110
+                JMP         CODE_0111
+                JMP         CODE_1000
+                JMP         CODE_1001
+                JMP         CODE_1010
+                JMP         CODE_1011
+                JMP         CODE_1100
+                JMP         CODE_1101
+                JMP         CODE_1110
+                JMP         CODE_1111
+                RTS                             * return to caller
 
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_0000
+*
+* Description:
+*       This disassembler does not decode any opcodes that begins with 0000.
+*-------------------------------------------------------------------------------
+CODE_0000:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_0001
+*
+* Description:
+*       Decodes the following opcodes:
+*           - MOVE.B
+*-------------------------------------------------------------------------------
+CODE_0001:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_0010
+*
+* Description:
+*       Decodes the following opcodes:
+*           - MOVE.L
+*           - MOVEA.L
+*-------------------------------------------------------------------------------
+CODE_0010:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_0011
+*
+* Description:
+*       Decodes the following opcodes:
+*           - MOVE.W
+*           - MOVEA.W
+*-------------------------------------------------------------------------------
+CODE_0011:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_0100
+*
+* Description:
+*       Decodes the following opcodes:
+*           - LEA.L
+*           - NOT
+*           - NOP
+*           - RTS
+*           - JSR
+*-------------------------------------------------------------------------------
+CODE_0100:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_0101
+*
+* Description:
+*       Decodes the following opcodes:
+*           - ADDQ
+*-------------------------------------------------------------------------------
+CODE_0101:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_0110
+*
+* Description:
+*       Decodes the following opcodes:
+*           - BGT
+*           - BLE
+*           - BEQ
+*           - BRA
+*-------------------------------------------------------------------------------
+CODE_0110:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_0111
+*
+* Description:
+*       Decodes the following opcodes:
+*           - MOVEQ.L
+*-------------------------------------------------------------------------------
+CODE_0111:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_1000
+*
+* Description:
+*       Decodes the following opcodes:
+*           - OR
+*-------------------------------------------------------------------------------
+CODE_1000:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_1001
+*
+* Description:
+*       Decodes the following opcodes:
+*           - SUB
+*-------------------------------------------------------------------------------
+CODE_1001:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_1010
+*
+* Description:
+*       This disassembler does not decode any opcodes that begins with 1010.
+*-------------------------------------------------------------------------------
+CODE_1010:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_1011
+*
+* Description:
+*       This disassembler does not decode any opcodes that begins with 1011.
+*-------------------------------------------------------------------------------
+CODE_1011:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_1100
+*
+* Description:
+*       Decodes the following opcodes:
+*           - AND
+*-------------------------------------------------------------------------------
+CODE_1100:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_1101
+*
+* Description:
+*       Decodes the following opcodes:
+*           - ADD
+*           - ADDA
+*-------------------------------------------------------------------------------
+CODE_1101:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_1101
+*
+* Description:
+*       Decodes the following opcodes:
+*           - LSL
+*           - LSR
+*           - ASL
+*           - ASR
+*           - ROL
+*           - ROR
+*-------------------------------------------------------------------------------
+CODE_1110:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       CODE_1111
+*
+* Description:
+*       This disassembler does not decode any opcodes that begins with 1111.
+*-------------------------------------------------------------------------------
+CODE_1111:
+                JSR         INVALID_OPCODE
+                RTS                             * return to caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       INVALID_OPCODE
+*
+* Description:
+*       Displays instructions that cannot be decoded, either because they do not
+*       disassemble as op codes or because you aren't able to decode, in the
+*       follow format:
+*           <memory location>       DATA       $WXYZ
+*-------------------------------------------------------------------------------
+INVALID_OPCODE:
+                MOVEM.L     A1-A2, -(SP)        * save registers
+                JSR         CLEAR_OUTPUT_BUFFER * clear output buffer
+                LEA         output_buffer, A2   * load address of output buffer
+
+                * load "DATA" into output buffer
+                MOVE.B      #HT, (A2)+          * append tab character
+                MOVE.B      #'D', (A2)+         * append 'D'
+                MOVE.B      #'A', (A2)+         * append 'A'
+                MOVE.B      #'T', (A2)+         * append 'T'
+                MOVE.B      #'A', (A2)+         * append 'A'
+                MOVE.B      #HT, (A2)+          * append tab character
+                MOVE.B      #'$', (A2)+         * append '$'
+
+                LEA         output_buffer, A1   * load address of output buffer
+                JSR         PRINT_STRING        * print "DATA $"
+
+                * load the value at start_addr into D0 and print it
+                JSR         LOAD_CURRENT_WORD   * load invalid word
+                JSR         WORD_TO_HEX_STRING  * convert word value to hex string
+                LEA         word_string_buf, A1 * load address of converted hex string
+                JSR         PRINT_STRING        * print hex string
+
+                MOVEM.L     (SP)+, A1-A2        * restore registers
+                RTS                             * return to the caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       LOAD_CURRENT_WORD
+*
+* Description:
+*       Loads D0 with the word value held at the address start_addr holds.
+*
+* Return Value:
+*       D0 - Word value (first 16 bits) of the data held at the address of
+*       start_addr.
+*-------------------------------------------------------------------------------
+LOAD_CURRENT_WORD:
+                MOVEM.L     A0, -(SP)           * save registers
+                MOVE.L      #0, D0              * clear D0
+                MOVE.L      start_addr, A0      * load address of start_addr into A0
+                MOVE.W      (A0), D0            * load in word data at start_addr
+                MOVEM.L     (SP)+, A0           * restore registers
+                RTS                             * return to the caller
 
 
 
