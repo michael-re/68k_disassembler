@@ -10,12 +10,13 @@ HT              EQU         $00000009
 MIN_ADDR        EQU         $00000000
 MAX_ADDR        EQU         $00FFFFFF
 STACK           EQU         $0000A000
-BUFFER_SIZE     EQU         $00000100
+BUFFER_SIZE     EQU         $00000064
 CODE_SEC        EQU         $00001000
 TEXT_SEC        EQU         $00006000
 
 SHIFT_12        EQU         12
-
+SHIFT_6         EQU         6
+SHIFT_3         EQU         3
 
 START:          ORG         CODE_SEC
                 LEA         welcome_msg, A1     * load welcome message
@@ -131,7 +132,8 @@ DISP_LOOP:      MOVE.L      start_addr, D0      * reload start_addr into D0
                 BGE         DISP_END            * exit loop if start_addr >= end_addr
 
                 JSR         DECODE_INSTRUCTION  * call DECODE_INSTRUCTION
-                JSR         PRINT_NEWLINE       * print empty line
+                LEA         output_buffer, A1   * load output buffer with decoded instruction
+                JSR         PRINT_STRING_LN     * print buffer
                 DBF         D2, DISP_LOOP       * decrement counter and loop if not zero
 
 DISP_END:       MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
@@ -159,7 +161,7 @@ DECODE_INSTRUCTION:
                 LEA         long_string_buf, A1 * load address of hex string
                 JSR         PRINT_STRING        * print hex string
 
-                LEA         JUMP_TABLE_ONE, A0  * load address of first jump table
+                LEA         OPCODE_TABLE, A0    * load address of first jump table
                 JSR         LOAD_CURRENT_WORD   * load word data of current instruction to decode
                 MOVE.B      #SHIFT_12, D1       * shift 12 bits to the right
                 LSR.W       D1, D0              * isolate the first 4 bits to decode opcode name
@@ -172,7 +174,7 @@ DECODE_INSTRUCTION:
                 MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
                 RTS                             * return to the caller
 
-JUMP_TABLE_ONE:
+OPCODE_TABLE:
                 JMP         CODE_0000
                 JMP         CODE_0001
                 JMP         CODE_0010
@@ -257,38 +259,61 @@ CODE_0011:
 *-------------------------------------------------------------------------------
 CODE_0100:
                 JSR         CLEAR_OUTPUT_BUFFER
-                LEA         output_buffer, A1
-                LEA         output_buffer, A2
+                LEA         output_buffer, A0
 
                 * check if instruction is NOP
                 JSR         LOAD_CURRENT_WORD   * load current instruction
                 CMP         #$4E71, D0          * compare against NOP
                 BEQ         MATCHED_NOP
 
+                * check if instruction RTS
                 CMP         #$4E75, D0          * compare against RTS
                 BEQ         MATCHED_RTS
 
+                * check if instruction is JSR
+                MOVE.B      #SHIFT_6, D1       * shift 6 bits to the right
+                LSR.W       D1, D0             * isolate the first 4 bits to decode opcode name
+                CMP         #$13A, D0          * compare against JSR
+                BEQ         MATCHED_JSR
+
                 * couldn't decode word to valid instruction
-                JSR         INVALID_OPCODE
+_0100_INVALID:  JSR         INVALID_OPCODE
                 BRA         _0100_RETURN
 
 MATCHED_NOP:
                 * load "NOP" into output buffer
-                MOVE.B      #HT, (A2)+
-                MOVE.B      #'N', (A2)+
-                MOVE.B      #'O', (A2)+
-                MOVE.B      #'P', (A2)+
-                JSR         PRINT_STRING        * print "NOP"
+                MOVE.B      #HT, (A0)+
+                LEA         string_nop, A1
+                JSR         WRITE_TO_BUFFER
                 BRA         _0100_RETURN        * done decoding NOP
 
 MATCHED_RTS:
                 * load "RTS" into output buffer
-                MOVE.B      #HT, (A2)+
-                MOVE.B      #'R', (A2)+
-                MOVE.B      #'T', (A2)+
-                MOVE.B      #'S', (A2)+
-                JSR         PRINT_STRING        * print "RTS"
+                MOVE.B      #HT, (A0)+
+                LEA         string_rts, A1
+                JSR         WRITE_TO_BUFFER
                 BRA         _0100_RETURN        * done decoding RTS
+
+MATCHED_JSR:
+                * load "JSR" into output buffer
+                MOVE.B      #HT, (A0)+
+                LEA         string_jsr, A1
+                JSR         WRITE_TO_BUFFER
+
+                * get addressing mode for JSR
+                JSR         DECODE_SRC_EA
+
+                * JSR supported EA - (An), (xxx).W, (xxx).L
+                CMP.L       #3, D1
+                BLT         _0100_INVALID
+
+                CMP.L       #6, D1
+                BLT         _0100_INVALID
+
+                CMP.L       #7, D1
+                BNE         _0100_INVALID
+
+                BRA         _0100_RETURN        * done decoding JSR
 
 _0100_RETURN:   RTS                             * return to caller
 
@@ -448,35 +473,26 @@ CODE_1111:
 *       INVALID_OPCODE
 *
 * Description:
-*       Displays instructions that cannot be decoded, either because they do not
-*       disassemble as op codes or because you aren't able to decode, in the
-*       follow format:
-*           <memory location>       DATA       $WXYZ
+*       Writes "DATA   $WXYZ" to the output buffer, where $WXYZ is the
+*       hexadecimal number that couldn't be decoded.
 *-------------------------------------------------------------------------------
 INVALID_OPCODE:
-                MOVEM.L     A1-A2, -(SP)        * save registers
+                MOVEM.L     A0-A1, -(SP)        * save registers
                 JSR         CLEAR_OUTPUT_BUFFER * clear output buffer
-                LEA         output_buffer, A2   * load address of output buffer
+                LEA         output_buffer, A0   * load address of output buffer
+                LEA         string_data, A1     * load address of 'DATA' string
 
-                * load "DATA" into output buffer
-                MOVE.B      #HT, (A2)+          * append tab character
-                MOVE.B      #'D', (A2)+         * append 'D'
-                MOVE.B      #'A', (A2)+         * append 'A'
-                MOVE.B      #'T', (A2)+         * append 'T'
-                MOVE.B      #'A', (A2)+         * append 'A'
-                MOVE.B      #HT, (A2)+          * append tab character
-                MOVE.B      #'$', (A2)+         * append '$'
-
-                LEA         output_buffer, A1   * load address of output buffer
-                JSR         PRINT_STRING        * print "DATA $"
+                MOVE.B      #HT, (A0)+          * append tab character
+                JSR         WRITE_TO_BUFFER     * write DATA to buffer
+                MOVE.B      #'$', (A0)+         * append '$'
 
                 * load the value at start_addr into D0 and print it
                 JSR         LOAD_CURRENT_WORD   * load invalid word
                 JSR         WORD_TO_HEX_STRING  * convert word value to hex string
                 LEA         word_string_buf, A1 * load address of converted hex string
-                JSR         PRINT_STRING        * print hex string
+                JSR         WRITE_TO_BUFFER     * write word to buffer
 
-                MOVEM.L     (SP)+, A1-A2        * restore registers
+                MOVEM.L     (SP)+, A0-A1        * restore registers
                 RTS                             * return to the caller
 
 
@@ -501,6 +517,84 @@ LOAD_CURRENT_WORD:
                 RTS                             * return to the caller
 
 
+********************************************************************************
+*
+********************************************************************************
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       DECODE_SRC_EA
+*
+* Description:
+*       Decodes the addressing mode of the current instruction and writes it
+*       to the buffer in A0.
+*
+*
+* Return Value:
+*       D1 - The effective addressing mode of the current instruction.
+*            The following numbers correspond to the following addressing modes:
+*               -1: error   - invalid addressing mode
+*                1: Dn      - data register direct
+*                2: An      - address register direct
+*                3: (An)    - address register indirect
+*                4: (An)+   - address register indirect with post incrementing
+*                5: -(An)   - address register indirect with pre decrementing
+*                6: (xxx).W - absolute word address
+*                7: (xxx).L - absolute long address
+*                8: #imm    - immediate data
+*-------------------------------------------------------------------------------
+DECODE_SRC_EA:
+                JSR         LOAD_CURRENT_WORD
+                LEA         EA_TABLE, A0        * load address of ea jump table
+                ANDI.L      #$3F, D0            * isolate the lower 6 bits
+                MOVE.B      #SHIFT_3, D1        * shift 3 bits to the right
+                LSR.W       D1, D0              * isolate the 3 mode bits
+                MULU        #6, D0              * form offset
+                JSR         0(A0, D0)           * jump indirect with index
+                RTS                             * return to caller
+
+EA_TABLE:
+                JMP         EA_MODE_000         * Dn    - data register direct
+                JMP         EA_MODE_001         * An    - address register direct
+                JMP         EA_MODE_010         * (An)  - address register indirect
+                JMP         EA_MODE_011         * (An)+ - address register indirect with post incrementing
+                JMP         EA_MODE_100         * -(An) - address register indirect with pre decrementing
+                JMP         EA_MODE_101         * --- unsupported ---
+                JMP         EA_MODE_110         * --- unsupported ---
+                JMP         EA_MODE_111         * absolute word/long addressing and immediate data
+                RTS                             * return to caller
+
+EA_MODE_000:                                    * Dn
+                MOVE.L      #-1, D1             * invalid addressing mode
+                RTS                             * return to caller
+
+EA_MODE_001:                                    * An
+                MOVE.L      #-1, D1             * invalid addressing mode
+                RTS                             * return to caller
+
+EA_MODE_010:                                    * (An)
+                MOVE.L      #-1, D1             * invalid addressing mode
+                RTS                             * return to caller
+
+EA_MODE_011:                                    * (An)+
+                MOVE.L      #-1, D1             * invalid addressing mode
+                RTS                             * return to caller
+
+EA_MODE_100:                                    * -(An)
+                MOVE.L      #-1, D1             * invalid addressing mode
+                RTS                             * return to caller
+
+EA_MODE_101:                                    * --- unsupported ---
+                MOVE.L      #-1, D1             * invalid addressing mode
+                RTS                             * return to caller
+
+EA_MODE_110:                                    * --- unsupported ---
+                MOVE.L      #-1, D1             * invalid addressing mode
+                RTS                             * return to caller
+
+EA_MODE_111:                                    * (xxx).W, (xxx).L, #imm
+                MOVE.L      #-1, D1             * invalid addressing mode
+                RTS                             * return to caller
 
 ********************************************************************************
 * Conversion subroutines
@@ -926,6 +1020,30 @@ COB_CLEAR:      CLR.B       (A0)+               * clear the byte and increment A
 
 *-------------------------------------------------------------------------------
 * Subroutine:
+*       WRITE_TO_BUFFER
+*
+* Description:
+*       Writes the null-terminated string in A1 to the buffer in A0.
+*
+* Parameters:
+*       A0 - Buffer to write to.
+*       A1 - Null-terminated string to write.
+*-------------------------------------------------------------------------------
+WRITE_TO_BUFFER:
+                MOVEM.L  A1/D0, -(SP)           * save registers
+
+WTB_LOOP:       MOVE.B  (A1)+, D0               * load character from string
+                BEQ     WTB_END                 * if end of string, exit loop
+                MOVE.B  D0, (A0)+               * write character to buffer
+                BRA     WTB_LOOP                * repeat until end of string
+
+WTB_END:        MOVEM.L  (SP)+, A1/D0           * restore registers
+                RTS                             * return to caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
 *       CLEAR_REGISTERS
 *
 * Description:
@@ -958,7 +1076,7 @@ CLEAR_REGISTERS:
 *-------------------------------------------------------------------------------
                 ORG         TEXT_SEC
 
-* -------------- variables --------------
+* -------------- variables -----------------------------------------------------
 start_addr      DC.L        $0          * address of instruction to disassemble
 end_addr        DC.L        $0          * address of the last instruction to disassemble
 input_buffer    DS.B        BUFFER_SIZE * buffer to store string user input (256 chars)
@@ -967,7 +1085,7 @@ output_buffer   DS.B        BUFFER_SIZE * buffer to store string to display (256
 long_string_buf DC.B       '         ', 0
 word_string_buf DC.B       '     ', 0
 
-* -------------- info messages --------------
+* -------------- info messages -------------------------------------------------
 rule_msg        DC.B        'When entering the memory address to load in a program,', CR, LF
                 DC.B        'the following restrictions apply:',                      CR, LF, CR, LF, HT
                 DC.B        '1. Address must be in hexadecimal format.',              CR, LF, HT
@@ -984,7 +1102,7 @@ restart_msg     DC.B        'Do you want to restart or quite? Enter "R" to resta
 continue_msg    DC.B        'Press enter to disassemble another page or anything else to quit: ', 0
 finish_msg      DC.B        'Finished disassembling instructions!', 0
 
-* -------------- error messages --------------
+* -------------- error messages ------------------------------------------------
 error_msg       DC.B        'Error: received invalid input.',                      CR, LF, 0
 error_msg_h     DC.B        'Error: input not valid hex string in longword form.', CR, LF, 0
 error_msg_l     DC.B        'Error: input less than min allowable value.',         CR, LF, 0
@@ -995,5 +1113,39 @@ start_msg       DC.B        'Enter starting memory address : $', 0
 end_msg         DC.B        'Enter ending memory address   : $', 0
 
 empty_line      DC.B        ' ', CR, LF, 0
+
+* -------------- op codes and other values -------------------------------------
+string_data     DC.B        'DATA    ', 0
+string_nop      DC.B        'NOP     ', 0
+string_rts      DC.B        'RTS     ', 0
+string_jsr      DC.B        'JSR     ', 0
+
+string_moveq    DC.B        'MOVEQ.L ', 0
+string_moveb    DC.B        'MOVE.B  ', 0
+string_movew    DC.B        'MOVE.W  ', 0
+string_movel    DC.B        'MOVE.L  ', 0
+
+string_moveaw   DC.B        'MOVEA.W ', 0
+string_moveal   DC.B        'MOVEA.L ', 0
+string_lea      DC.B        'LEA.L   ', 0
+
+string_bcc      DC.B        'BCC     ', 0
+string_bgt      DC.B        'BGT     ', 0
+string_ble      DC.B        'BLE     ', 0
+string_beq      DC.B        'BEQ     ', 0
+string_bra      DC.B        'BRA     ', 0
+
+string_not      DC.B        'NOT',      0
+string_or       DC.B        'OR',       0
+string_and      DC.B        'AND',      0
+
+string_add      DC.B        'ADD',      0
+string_adda     DC.B        'ADDA',     0
+string_addq     DC.B        'ADDQ',     0
+string_sub      DC.B        'SUB',      0
+
+string_ls       DC.B        'LS',       0
+string_as       DC.B        'AS',       0
+string_ro       DC.B        'RO',       0
 
                 END    START            * last line of source
