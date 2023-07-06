@@ -15,6 +15,7 @@ CODE_SEC        EQU         $00001000
 TEXT_SEC        EQU         $00006000
 
 SHIFT_12        EQU         12
+SHIFT_8         EQU         8
 SHIFT_6         EQU         6
 SHIFT_3         EQU         3
 
@@ -270,10 +271,17 @@ CODE_0100:
                 BEQ         MATCHED_RTS
 
                 * check if instruction is JSR
-                MOVE.B      #SHIFT_6, D1       * shift 6 bits to the right
-                LSR.W       D1, D0             * isolate the first 4 bits to decode opcode name
-                CMP         #$13A, D0          * compare against JSR
+                MOVE.B      #SHIFT_6, D1        * shift 6 bits to the right
+                LSR.W       D1, D0              * isolate the first 4 bits to decode opcode name
+                CMP         #$13A, D0           * compare against JSR
                 BEQ         MATCHED_JSR
+
+                * check if instruction is NOT
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                MOVE.B      #SHIFT_8, D1        * shift 8 bits to the right
+                LSR.W       D1, D0              * isolate bits 15 - 8
+                CMP         #$46, D0            * check against NOT
+                BEQ         MATCHED_NOT
 
                 * couldn't decode word to valid instruction
 _0100_INVALID:  JSR         INVALID_OPCODE
@@ -292,6 +300,39 @@ MATCHED_RTS:
                 LEA         string_rts, A1
                 JSR         WRITE_TO_BUFFER
                 BRA         _0100_RETURN        * done decoding RTS
+
+MATCHED_NOT:
+                * load "NOT" into output buffer
+                MOVE.B      #HT, (A0)+
+                LEA         string_not, A1
+                JSR         WRITE_TO_BUFFER
+
+                * print size
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_SIZE
+
+                * check if valid size was decoded
+                CMP         #-1, D0
+                BEQ         _0100_INVALID
+
+                * align start of operands
+                MOVE.B      #' ', (A0)+
+                MOVE.B      #' ', (A0)+
+                MOVE.B      #' ', (A0)+
+
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         DECODE_EA           * get addressing mode
+
+                CMP.L       #2, D0              * does not support (An)
+                BEQ         _0100_INVALID
+
+                CMP.L       #8, D0              * does not support #imm
+                BEQ         _0100_INVALID
+
+                CMP.L       #-1, D0             * invalid addressing mode
+                BEQ         _0100_INVALID
+
+                BRA _0100_RETURN                * done decoding NOT
 
 MATCHED_JSR:
                 * load "JSR" into output buffer
@@ -539,6 +580,7 @@ LOAD_CURRENT_WORD:
                 RTS                             * return to the caller
 
 
+
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       NEXT_INSTRUCTION
@@ -732,6 +774,64 @@ _111_ERROR_EA:  MOVE.L      #-1, D0             * invalid addressing mode
 _111_RETURN:    RTS                             * return to caller
 
 
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       DECODE_SIZE
+*
+* Description:
+*       Decodes the size of the instruction in D0 and writes it to the buffer in
+*       A0. On exit, A0 will point to the last byte written to the buffer.
+*
+*       Keep in mind, this only works for opcodes where bit 7 and 6 hold the
+*       the size of the instruction. THIS DOES NOT WORK FOR instruction where
+*       the size is determined by a single bit or other bit fields in the
+*       instruction
+*
+* Parameters:
+*       A0 - Pointer to buffer to write too.
+*       D0 - Instruction to decode the size of.
+*
+* Return Value:
+*       D0 - The decoded size of the current instruction, where each of the
+*            following numbers correspond to the following sizes:
+*               -1: error - invalid instruction size mode
+*                1: byte  - .B
+*                2: word  - .W
+*                3: long  - .L
+*-------------------------------------------------------------------------------
+DECODE_SIZE:
+                MOVEM.L     A1-A6/D1-D7, -(SP)  * save registers
+                ANDI.L      #$C0, D0            * isolate bits 7 and 6
+
+                CMP.L       #$0, D0             * check if byte
+                BEQ         DS_BYTE
+
+                CMP.L       #$40, D0            * check if word
+                BEQ         DS_WORD
+
+                CMP.L       #$80, D0            * check if long
+                BEQ         DS_LONG
+
+                BRA         DS_INVALID          * something went wrong
+
+DS_BYTE:        LEA         string_byte, A1
+                JSR         WRITE_TO_BUFFER
+                MOVE.L      #0, D0
+                BRA         DS_RETURN
+
+DS_WORD:        LEA         string_word, A1
+                JSR         WRITE_TO_BUFFER
+                MOVE.L      #0, D0
+                BRA         DS_RETURN
+
+DS_LONG:        LEA         string_long, A1
+                JSR         WRITE_TO_BUFFER
+                MOVE.L      #0, D0
+                BRA         DS_RETURN
+
+DS_INVALID:     MOVE.L      #-1, D0             * add return value
+DS_RETURN:      MOVEM.L     (SP)+, A1-A6/D1-D7  * restore registers
+                RTS                             * return to caller
 
 
 
@@ -1285,5 +1385,9 @@ string_sub      DC.B        'SUB',      0
 string_ls       DC.B        'LS',       0
 string_as       DC.B        'AS',       0
 string_ro       DC.B        'RO',       0
+
+string_byte     DC.B        '.B',       0
+string_word     DC.B        '.W',       0
+string_long     DC.B        '.L',       0
 
                 END    START            * last line of source
