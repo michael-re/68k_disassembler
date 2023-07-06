@@ -162,7 +162,7 @@ DECODE_INSTRUCTION:
                 LEA         long_string_buf, A1 * load address of hex string
                 JSR         PRINT_STRING        * print hex string
 
-                LEA         OPCODE_TABLE, A0    * load address of first jump table
+                LEA         OPCODE_TABLE, A0    * load address of opcode jump table
                 JSR         LOAD_CURRENT_WORD   * load word data of current instruction to decode
                 MOVE.B      #SHIFT_12, D1       * shift 12 bits to the right
                 LSR.W       D1, D0              * isolate the first 4 bits to decode opcode name
@@ -658,7 +658,7 @@ EA_TABLE:
 EA_MODE_000:                                    * Dn
                 MOVE.B      #'D', (A0)+         * append 'D' for data register
                 MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1            * isolate 3 register bits
+                ANDI.L      #$7, D1             * isolate 3 register bits
                 ADD.B       #'0', D1            * convert to ASCII
                 MOVE.B      D1, (A0)+           * write register number to buffer
                 MOVE.L      #1, D0              * add return value
@@ -667,7 +667,7 @@ EA_MODE_000:                                    * Dn
 EA_MODE_001:                                    * An
                 MOVE.B      #'A', (A0)+         * append 'A' for address register
                 MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1            * isolate 3 register bits
+                ANDI.L      #$7, D1             * isolate 3 register bits
                 ADD.B       #'0', D1            * convert to ASCII
                 MOVE.B      D1, (A0)+           * write register number to buffer
                 MOVE.L      #2, D0              * add return value
@@ -677,7 +677,7 @@ EA_MODE_010:                                    * (An)
                 MOVE.B      #'(', (A0)+         * append '('
                 MOVE.B      #'A', (A0)+         * append 'A' for address register
                 MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1            * isolate 3 register bits
+                ANDI.L      #$7, D1             * isolate 3 register bits
                 ADD.B       #'0', D1            * convert to ASCII
                 MOVE.B      D1, (A0)+           * write register number to buffer
                 MOVE.B      #')', (A0)+         * append ')'
@@ -688,7 +688,7 @@ EA_MODE_011:                                    * (An)+
                 MOVE.B      #'(', (A0)+         * append '('
                 MOVE.B      #'A', (A0)+         * append 'A' for address register
                 MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1            * isolate 3 register bits
+                ANDI.L      #$7, D1             * isolate 3 register bits
                 ADD.B       #'0', D1            * convert to ASCII
                 MOVE.B      D1, (A0)+           * write register number to buffer
                 MOVE.B      #')', (A0)+         * append ')'
@@ -701,7 +701,7 @@ EA_MODE_100:                                    * -(An)
                 MOVE.B      #'(', (A0)+         * append '('
                 MOVE.B      #'A', (A0)+         * append 'A' for address register
                 MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1            * isolate 3 register bits
+                ANDI.L      #$7, D1             * isolate 3 register bits
                 ADD.B       #'0', D1            * convert to ASCII
                 MOVE.B      D1, (A0)+           * write register number to buffer
                 MOVE.B      #')', (A0)+         * append ')'
