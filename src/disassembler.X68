@@ -272,9 +272,14 @@ CODE_0100:
 
                 * check if instruction is JSR
                 MOVE.B      #SHIFT_6, D1        * shift 6 bits to the right
-                LSR.W       D1, D0              * isolate the first 4 bits to decode opcode name
+                LSR.W       D1, D0              * isolate bits 15 - 6
                 CMP         #$13A, D0           * compare against JSR
                 BEQ         MATCHED_JSR
+
+                * check if instruction is LEA.L
+                ANDI.L      #$7, D0            * isolate the last 3 bits
+                CMP         #$7, D0            * check if its LEA.L
+                BEQ         MATCHED_LEA
 
                 * check if instruction is NOT
                 JSR         LOAD_CURRENT_WORD   * load current instruction
@@ -352,30 +357,60 @@ MATCHED_JSR:
                 * is absolute word or long.
 
                 JSR         LOAD_CURRENT_WORD
-                MOVE.L      D0, D1          * create temp copy in D1 to check EA
+                MOVE.L      D0, D1              * create temp copy in D1 to check EA
 
                 MOVE.L      #$3F, D2
-                AND.L       D2, D1          * isolate 6 EA mode bits
+                AND.L       D2, D1              * isolate 6 EA mode bits
 
-                CMPI.B      #$38, D1        * check if EA is (xxx).W
+                CMPI.B      #$38, D1            * check if EA is (xxx).W
                 BEQ         JSR_SHORT
 
-                BRA         JSR_CONTINUE    * not dealing with absolute addressing
+                BRA         JSR_CONTINUE        * not dealing with absolute addressing
 
                 * set EA to absolute long
 JSR_SHORT:      ORI.B       #$01, D0
 
                 * get addressing mode for JSR
 JSR_CONTINUE:   JSR         DECODE_EA
-                CMP.L       #3, D0          * check if decoded (An)
+                CMP.L       #3, D0              * check if decoded (An)
                 BEQ         _0100_RETURN
 
-                CMP.L       #7, D0          * check if decoded (xxx).L
+                CMP.L       #7, D0              * check if decoded (xxx).L
                 BEQ         _0100_RETURN
 
-                BRA         _0100_INVALID   * invalid addressing returned
+                BRA         _0100_INVALID       * invalid addressing returned
 
-_0100_RETURN:   RTS                         * return to caller
+MATCHED_LEA:
+                * load "LEA" into output buffer
+                MOVE.B      #HT, (A0)+
+                LEA         string_lea, A1
+                JSR         WRITE_TO_BUFFER
+
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         DECODE_EA           * get source EA
+
+                CMP.L       #3, D0              * check if decoded (An)
+                BEQ         LEA_CONTINUE
+
+                BEQ         LEA_CONTINUE
+
+                CMP.L       #7, D0              * check if decoded (xxx).L
+                BEQ         LEA_CONTINUE
+
+                BRA         _0100_INVALID
+
+
+LEA_CONTINUE:   MOVE.B      #',', (A0)+         * append ','
+                MOVE.B      #' ', (A0)+         * append ' '
+
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         LOAD_DST_EA         * load EA for destination
+                ANDI.L      #$0F, D0            * set to An
+                JSR         DECODE_EA           * get addressing mode for destination
+
+                BRA         _0100_RETURN        * done decoding LEA
+
+_0100_RETURN:   RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
@@ -829,6 +864,48 @@ DS_LONG:        LEA         string_long, A1
 DS_INVALID:     MOVE.L      #-1, D0             * add return value
 DS_RETURN:      MOVEM.L     (SP)+, A1-A6/D1-D7  * restore registers
                 RTS                             * return to caller
+
+
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       LOAD_DST_EA
+*
+* Description:
+*       Swaps destination EA with source EA for the instruction in D0. The
+*       destination EA, bits 6 - 11, will be swapped with the source EA, bits
+*       0 - 5. After swapping the destination and source EA, the destination
+*       Mode and Xn bits are swapped so they fall in the following format:
+*           <Mode> <Xn>
+*
+* Parameters:
+*       D0 - Instruction to load destination EA of.
+*
+* Return Value:
+*       D0 - The destination EA of the instruction where the first three bits
+*            represent the <Xn> and the next three the <Mode>.
+*-------------------------------------------------------------------------------
+LOAD_DST_EA:
+                MOVEM.L     D1, -(SP)           * save registers
+
+                * move dst to were src is
+                MOVE.B      #SHIFT_6, D1        * shift 6 bits to the right
+                LSR.W       D1, D0              * isolate bits 15 - 6
+                ANDI.L      #$3F, D0            * isolate lower 6 bits
+
+                * swap mode with reg in destination
+                MOVE.L      D0, D1              * copy the contents of D0 to D1
+                ANDI.L      #$07, D0            * isolate first 3 bits in D0
+                LSL.W       #3, D0              * shift D0 3 bits to the left
+                ANDI.L      #$38, D1            * isolate the next 3 bits in D1
+                LSR.W       #3, D1              * shift D1 3 bits to the right
+                OR.L        D1, D0              * combine the modified D0 and D1 to swap bits 0-2 with 3-5
+
+                MOVEM.L     (SP)+, D1           * restore registers
+                RTS                             * return to caller
+
 
 
 
@@ -1317,8 +1394,8 @@ inst_offset     DC.L        $2          * offset to the next instruction
 input_buffer    DS.B        BUFFER_SIZE * buffer to store string user input (256 chars)
 output_buffer   DS.B        BUFFER_SIZE * buffer to store string to display (256 chars)
 
-long_string_buf DC.B       '         ', 0
-word_string_buf DC.B       '     ', 0
+long_string_buf DC.B       '        ', 0
+word_string_buf DC.B       '    ', 0
 
 * -------------- info messages -------------------------------------------------
 rule_msg        DC.B        'When entering the memory address to load in a program,', CR, LF
