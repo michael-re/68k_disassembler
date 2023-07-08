@@ -392,6 +392,7 @@ MATCHED_LEA:
                 CMP.L       #3, D0              * check if decoded (An)
                 BEQ         LEA_CONTINUE
 
+                CMP.L       #6, D0              * check if decoded (xxx).W
                 BEQ         LEA_CONTINUE
 
                 CMP.L       #7, D0              * check if decoded (xxx).L
