@@ -1471,7 +1471,7 @@ rule_msg        DC.B        'When entering the memory address to load in a progr
 
 welcome_msg     DC.B        'Welcome to the 68K disassembler!',          CR, LF,              0
 goodbye_msg     DC.B        'Thank you for using the 68K disassembler!', CR, LF, CR, LF,      0
-restart_msg     DC.B        'Do you want to restart or quite? Enter "R" to restart, or "Q" to quit.', CR, LF, HT
+restart_msg     DC.B        'Do you want to restart or quit? Enter "R" to restart, or "Q" to quit.', CR, LF, HT
                 DC.B        'Enter (R/Q): ', 0
 continue_msg    DC.B        'Press enter to disassemble another page or anything else to quit: ', 0
 finish_msg      DC.B        'Finished disassembling instructions!', 0
