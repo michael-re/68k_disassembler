@@ -42,7 +42,7 @@ START:          ORG         CODE_SEC
                 LEA         welcome_msg, A1     * load welcome message
                 JSR         PRINT_STRING_LN     * print welcome message
 
-MAIN:
+PROGRAM_BEGIN:
                 LEA         STACK, SP           * reset stack pointer
                 JSR         CLEAR_REGISTERS     * set all register values to 0
 
@@ -166,10 +166,9 @@ DISP_END:       MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
 *       DECODE_INSTRUCTION
 *
 * Description:
-*       Placeholder subroutine that decodes the instruction at start_addr.
-*
-*       Currently, this subroutine prints the address stored in start_addr
-*       and the corresponding word data held at that address in memory.
+*       Decodes the instruction located at the address specified by start_addr,
+*       increments start_addr to the next instruction in memory, and outputs the
+*       decoded instruction to the screen.
 *-------------------------------------------------------------------------------
 DECODE_INSTRUCTION:
                 MOVEM.L     A0-A6/D0-D7, -(SP)  * save registers
@@ -181,13 +180,18 @@ DECODE_INSTRUCTION:
                 LEA         long_string_buf, A1 * load address of hex string
                 JSR         PRINT_STRING        * print hex string
 
-                LEA         OPCODE_TABLE, A0    * load address of opcode jump table
+                * prepare buffer
+                JSR         CLEAR_OUTPUT_BUFFER * clear output buffer
+                LEA         output_buffer, A0   * load into A0
+                MOVE.B      #HT, (A0)+          * append tab to align opcode name
+
+                LEA         OPCODE_TABLE, A1    * load address of opcode jump table
                 JSR         LOAD_CURRENT_WORD   * load word data of current instruction to decode
                 MOVE.B      #SHIFT_12, D1       * shift 12 bits to the right
                 LSR.W       D1, D0              * isolate the first 4 bits to decode opcode name
 
                 MULU        #6, D0              * form offset
-                JSR         0(A0, D0)           * jump indirect with index
+                JSR         0(A1,D0)            * jump indirect with index
                 JSR         NEXT_INSTRUCTION    * go to the next instruction
 
                 MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
@@ -234,9 +238,6 @@ CODE_0000:
 *           - MOVE.B
 *-------------------------------------------------------------------------------
 CODE_0001:
-                JSR         CLEAR_OUTPUT_BUFFER * prepare buffer
-                LEA         output_buffer, A0
-
                 * write opcode name to buffer
                 MOVE.B      #HT, (A0)+
                 LEA         string_moveb, A1
@@ -309,9 +310,6 @@ CODE_0011:
 *           - JSR
 *-------------------------------------------------------------------------------
 CODE_0100:
-                JSR         CLEAR_OUTPUT_BUFFER * prepare buffer
-                LEA         output_buffer, A0
-
                 * check if instruction is NOP
                 JSR         LOAD_CURRENT_WORD   * load current instruction
                 CMP         #$4E71, D0          * compare against NOP
@@ -345,21 +343,18 @@ _0100_INVALID:  JSR         INVALID_OPCODE
 
 MATCHED_NOP:
                 * load "NOP" into output buffer
-                MOVE.B      #HT, (A0)+
                 LEA         string_nop, A1
                 JSR         WRITE_TO_BUFFER
                 BRA         _0100_RETURN        * done decoding NOP
 
 MATCHED_RTS:
                 * load "RTS" into output buffer
-                MOVE.B      #HT, (A0)+
                 LEA         string_rts, A1
                 JSR         WRITE_TO_BUFFER
                 BRA         _0100_RETURN        * done decoding RTS
 
 MATCHED_NOT:
                 * load "NOT" into output buffer
-                MOVE.B      #HT, (A0)+
                 LEA         string_not, A1
                 JSR         WRITE_TO_BUFFER
 
@@ -392,7 +387,6 @@ MATCHED_NOT:
 
 MATCHED_JSR:
                 * load "JSR" into output buffer
-                MOVE.B      #HT, (A0)+
                 LEA         string_jsr, A1
                 JSR         WRITE_TO_BUFFER
 
@@ -433,7 +427,6 @@ JSR_CONTINUE:   JSR         DECODE_EA
 
 MATCHED_LEA:
                 * load "LEA" into output buffer
-                MOVE.B      #HT, (A0)+
                 LEA         string_lea, A1
                 JSR         WRITE_TO_BUFFER
 
@@ -724,7 +717,7 @@ DECODE_EA:
                 MOVE.B      #SHIFT_3, D2        * shift 3 bits to the right
                 LSR.W       D2, D1              * isolate the 3 mode bits
                 MULU        #6, D1              * form offset
-                JSR         0(A1, D1)           * jump indirect with index
+                JSR         0(A1,D1)            * jump indirect with index
                 MOVEM.L     (SP)+, A1-A6/D1-D7  * restore registers
                 RTS                             * return to caller
 
@@ -968,9 +961,9 @@ LOAD_DST_EA:
                 * swap mode with reg in destination
                 MOVE.L      D0, D1              * copy the contents of D0 to D1
                 ANDI.L      #$07, D0            * isolate first 3 bits in D0
-                LSL.W       #3, D0              * shift D0 3 bits to the left
+                LSL.W       #$03, D0            * shift D0 3 bits to the left
                 ANDI.L      #$38, D1            * isolate the next 3 bits in D1
-                LSR.W       #3, D1              * shift D1 3 bits to the right
+                LSR.W       #$03, D1            * shift D1 3 bits to the right
                 OR.L        D1, D0              * combine the modified D0 and D1 to swap bits 0-2 with 3-5
 
                 MOVEM.L     (SP)+, D1           * restore registers
@@ -1219,7 +1212,7 @@ INVALID_INPUT:
 *
 * Description:
 *       Asks the user if they want to restart the program or quit. If the user
-*       enters "R" or "r", it branches to MAIN to restart the program. If they
+*       enters "R" or "r", it branches to PROGRAM_BEGIN to restart the program. If they
 *       enter "Q" or "q", it branches to PROGRAM_END to terminate the program.
 *
 *-------------------------------------------------------------------------------
@@ -1231,10 +1224,10 @@ RESTART_PROMPT:
 
                 * check user input
                 CMP.B       #'R', D1            * compare user input in D1
-                BEQ         MAIN                * entered 'R' - restart
+                BEQ         PROGRAM_BEGIN       * entered 'R' - restart
 
                 CMP.B       #'r', D1            * compare user input in D1
-                BEQ         MAIN                * entered 'r' - restart
+                BEQ         PROGRAM_BEGIN       * entered 'r' - restart
 
                 CMP.B       #'Q', D1            * compare user input in D1
                 BEQ         PROGRAM_END         * entered 'Q' - terminate
@@ -1427,14 +1420,14 @@ COB_CLEAR:      CLR.B       (A0)+               * clear the byte and increment A
 *       A1 - Null-terminated string to write.
 *-------------------------------------------------------------------------------
 WRITE_TO_BUFFER:
-                MOVEM.L  A1/D0, -(SP)           * save registers
+                MOVEM.L     A1/D0, -(SP)        * save registers
 
-WTB_LOOP:       MOVE.B  (A1)+, D0               * load character from string
-                BEQ     WTB_END                 * if end of string, exit loop
-                MOVE.B  D0, (A0)+               * write character to buffer
-                BRA     WTB_LOOP                * repeat until end of string
+WTB_LOOP:       MOVE.B      (A1)+, D0           * load character from string
+                BEQ         WTB_END             * if end of string, exit loop
+                MOVE.B      D0, (A0)+           * write character to buffer
+                BRA         WTB_LOOP            * repeat until end of string
 
-WTB_END:        MOVEM.L  (SP)+, A1/D0           * restore registers
+WTB_END:        MOVEM.L     (SP)+, A1/D0        * restore registers
                 RTS                             * return to caller
 
 
