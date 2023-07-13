@@ -19,6 +19,25 @@ SHIFT_8         EQU         8
 SHIFT_6         EQU         6
 SHIFT_3         EQU         3
 
+* error value
+ERROR           EQU        -1
+
+* EA values
+DN_EA           EQU         1
+AN_EA           EQU         2
+ANI_EA          EQU         3
+ANIPI_EA        EQU         4
+ANIPD_EA        EQU         5
+ABSW_EA         EQU         6
+ABSL_EA         EQU         7
+IMM_EA          EQU         8
+
+* size values
+BYTE_VALUE      EQU         1
+WORD_VALUE      EQU         2
+LONG_VALUE      EQU         3
+
+
 START:          ORG         CODE_SEC
                 LEA         welcome_msg, A1     * load welcome message
                 JSR         PRINT_STRING_LN     * print welcome message
@@ -80,7 +99,7 @@ DIS_LOOP:       MOVE.L      start_addr, D0      * reload start_addr into D0
                 CMP.L       D1, D0              * compare start_addr and end_addr
                 BGE         DIS_END             * exit loop if start_addr >= end_addr
 
-                JSR         DISASSEMBLE_PAGE    * call DECODE_INSTRUCTION
+                JSR         DISASSEMBLE_PAGE    * calls DECODE_INSTRUCTION to print page
 
                 * check if all instructions have been decoded
                 MOVE.L      start_addr, D0      * reload start_addr into D0
@@ -223,11 +242,11 @@ CODE_0001:
                 LEA         string_moveb, A1
                 JSR         WRITE_TO_BUFFER
 
-                * decode source EA
+DECODE_MOVE_EA: * decode source EA
                 JSR         LOAD_CURRENT_WORD   * load current instruction
                 JSR         DECODE_EA           * get source EA
                 JSR         WRITE_COMMA         * write ', ' to buffer
-                CMP         #-1, D0             * check for invalid source EA
+                CMP         #ERROR, D0          * check for invalid source EA
                 BEQ         _0001_INVALID
 
                 * decode destination EA
@@ -236,13 +255,13 @@ CODE_0001:
                 JSR         DECODE_EA           * get destination EA
 
                 * check destination EA, MOVE supports all but An and #imm
-                CMP         #-1, D0             * check for invalid EA
+                CMP         #ERROR, D0         * check for invalid EA
                 BEQ         _0001_INVALID
 
-                CMP         #2, D0              * check for An
+                CMP         #AN_EA, D0          * check for An
                 BEQ         _0001_INVALID
 
-                CMP         #8, D0              * check for #imm
+                CMP         #IMM_EA, D0         * check for #imm
                 BEQ         _0001_INVALID
 
                 BRA         _0001_RETURN        * done decoding MOVE.B
@@ -309,8 +328,8 @@ CODE_0100:
                 BEQ         MATCHED_JSR
 
                 * check if instruction is LEA.L
-                ANDI.L      #$7, D0            * isolate the last 3 bits
-                CMP         #$7, D0            * check if its LEA.L
+                ANDI.L      #$7, D0             * isolate the last 3 bits
+                CMP         #$7, D0             * check if its LEA.L
                 BEQ         MATCHED_LEA
 
                 * check if instruction is NOT
@@ -349,7 +368,7 @@ MATCHED_NOT:
                 JSR         DECODE_SIZE
 
                 * check if valid size was decoded
-                CMP         #-1, D0
+                CMP         #ERROR, D0
                 BEQ         _0100_INVALID
 
                 * align start of operands
@@ -360,13 +379,13 @@ MATCHED_NOT:
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         DECODE_EA           * get addressing mode
 
-                CMP.L       #2, D0              * does not support (An)
+                CMP.L       #ERROR, D0          * invalid addressing mode
                 BEQ         _0100_INVALID
 
-                CMP.L       #8, D0              * does not support #imm
+                CMP.L       #ANI_EA, D0         * does not support (An)
                 BEQ         _0100_INVALID
 
-                CMP.L       #-1, D0             * invalid addressing mode
+                CMP.L       #IMM_EA, D0         * does not support #imm
                 BEQ         _0100_INVALID
 
                 BRA _0100_RETURN                * done decoding NOT
@@ -404,10 +423,10 @@ JSR_SHORT:      ORI.B       #$01, D0
 
                 * get addressing mode for JSR
 JSR_CONTINUE:   JSR         DECODE_EA
-                CMP.L       #3, D0              * check if decoded (An)
+                CMP.L       #ANI_EA, D0         * check if decoded (An)
                 BEQ         _0100_RETURN
 
-                CMP.L       #7, D0              * check if decoded (xxx).L
+                CMP.L       #ABSL_EA, D0        * check if decoded (xxx).L
                 BEQ         _0100_RETURN
 
                 BRA         _0100_INVALID       * invalid addressing returned
@@ -421,13 +440,13 @@ MATCHED_LEA:
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         DECODE_EA           * get source EA
 
-                CMP.L       #3, D0              * check if decoded (An)
+                CMP.L       #ANI_EA, D0         * check if decoded (An)
                 BEQ         LEA_CONTINUE
 
-                CMP.L       #6, D0              * check if decoded (xxx).W
+                CMP.L       #ABSW_EA, D0        * check if decoded (xxx).W
                 BEQ         LEA_CONTINUE
 
-                CMP.L       #7, D0              * check if decoded (xxx).L
+                CMP.L       #ABSL_EA, D0        * check if decoded (xxx).L
                 BEQ         LEA_CONTINUE
 
                 BRA         _0100_INVALID
@@ -687,15 +706,15 @@ NEXT_INSTRUCTION:
 * Return Value:
 *       D0 - The effective addressing mode of the current instruction.
 *            The following numbers correspond to the following addressing modes:
-*               -1: error   - invalid addressing mode
-*                1: Dn      - data register direct
-*                2: An      - address register direct
-*                3: (An)    - address register indirect
-*                4: (An)+   - address register indirect with post incrementing
-*                5: -(An)   - address register indirect with pre decrementing
-*                6: (xxx).W - absolute word address
-*                7: (xxx).L - absolute long address
-*                8: #imm    - immediate data
+*               ERROR:    error  - invalid addressing mode
+*               DN_EA:    Dn     - data register direct
+*               AN_EA:    An     - address register direct
+*               ANI_EA:   (An)   - address register indirect
+*               ANIPI_EA: (An)+  - address register indirect with post incrementing
+*               ANIPD_EA: -(An)  - address register indirect with pre decrementing
+*               ABSW_EA: (xxx).W - absolute word address
+*               ABSL_EA: (xxx).L - absolute long address
+*               IMM_EA:  #imm    - immediate data
 *-------------------------------------------------------------------------------
 DECODE_EA:
                 MOVEM.L     A1-A6/D1-D7, -(SP)  * save registers
@@ -722,63 +741,48 @@ EA_TABLE:
 
 EA_MODE_000:                                    * Dn
                 MOVE.B      #'D', (A0)+         * append 'D' for data register
-                MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1             * isolate 3 register bits
-                ADD.B       #'0', D1            * convert to ASCII
-                MOVE.B      D1, (A0)+           * write register number to buffer
-                MOVE.L      #1, D0              * add return value
+                JSR         WRITE_REGISTER_NUM
+                MOVE.L      #DN_EA, D0          * add return value
                 RTS                             * return to caller
 
 EA_MODE_001:                                    * An
                 MOVE.B      #'A', (A0)+         * append 'A' for address register
-                MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1             * isolate 3 register bits
-                ADD.B       #'0', D1            * convert to ASCII
-                MOVE.B      D1, (A0)+           * write register number to buffer
-                MOVE.L      #2, D0              * add return value
+                JSR         WRITE_REGISTER_NUM
+                MOVE.L      #AN_EA, D0          * add return value
                 RTS                             * return to caller
 
 EA_MODE_010:                                    * (An)
                 MOVE.B      #'(', (A0)+         * append '('
                 MOVE.B      #'A', (A0)+         * append 'A' for address register
-                MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1             * isolate 3 register bits
-                ADD.B       #'0', D1            * convert to ASCII
-                MOVE.B      D1, (A0)+           * write register number to buffer
+                JSR         WRITE_REGISTER_NUM
                 MOVE.B      #')', (A0)+         * append ')'
-                MOVE.L      #3, D0              * add return value
+                MOVE.L      #ANI_EA, D0         * add return value
                 RTS                             * return to caller
 
 EA_MODE_011:                                    * (An)+
                 MOVE.B      #'(', (A0)+         * append '('
                 MOVE.B      #'A', (A0)+         * append 'A' for address register
-                MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1             * isolate 3 register bits
-                ADD.B       #'0', D1            * convert to ASCII
-                MOVE.B      D1, (A0)+           * write register number to buffer
+                JSR         WRITE_REGISTER_NUM
                 MOVE.B      #')', (A0)+         * append ')'
                 MOVE.B      #'+', (A0)+         * append '+'
-                MOVE.L      #4, D0              * add return value
+                MOVE.L      #ANIPI_EA, D0       * add return value
                 RTS                             * return to caller
 
 EA_MODE_100:                                    * -(An)
                 MOVE.B      #'-', (A0)+         * append '-'
                 MOVE.B      #'(', (A0)+         * append '('
                 MOVE.B      #'A', (A0)+         * append 'A' for address register
-                MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1             * isolate 3 register bits
-                ADD.B       #'0', D1            * convert to ASCII
-                MOVE.B      D1, (A0)+           * write register number to buffer
+                JSR         WRITE_REGISTER_NUM
                 MOVE.B      #')', (A0)+         * append ')'
-                MOVE.L      #5, D0              * add return value
+                MOVE.L      #ANIPD_EA, D0       * add return value
                 RTS                             * return to caller
 
 EA_MODE_101:                                    * --- unsupported ---
-                MOVE.L      #-1, D0             * invalid addressing mode
+                MOVE.L      #ERROR, D0          * invalid addressing mode
                 RTS                             * return to caller
 
 EA_MODE_110:                                    * --- unsupported ---
-                MOVE.L      #-1, D0             * invalid addressing mode
+                MOVE.L      #ERROR, D0          * invalid addressing mode
                 RTS                             * return to caller
 
 EA_MODE_111:                                    * (xxx).W, (xxx).L, #imm
@@ -791,53 +795,52 @@ EA_MODE_111:                                    * (xxx).W, (xxx).L, #imm
                 CMP.L       #$3C, D0            * check if immediate data
                 BEQ         EA_IMM_DATA
 
-                BRA         _111_ERROR_EA       * something went wrong
+                BRA         _111_ERROR          *   something went wrong
 
 EA_ABS_WORD:
                 MOVE.B      #'$', (A0)+         * append '$'
-
-                MOVE.L      start_addr, D0      * load current instruction
-                MOVE.L      inst_offset, D1     * load instruction offset
-                ADD.L       D1, D0              * go to next instruction
-
-                MOVE.L      D0, A1              * load in address of instruction
-                MOVE.L      #0, D0              * reset D0
-                MOVE.W      (A1), D0            * copy word from memory
-
-                JSR         WORD_TO_HEX_STRING  * convert word to hex
-                LEA         word_string_buf, A1 * get converted word
-                JSR         WRITE_TO_BUFFER     * write word to buffer
-                ADD.L       #2, inst_offset     * update instruction offset by the number of bytes in word
-                MOVE.L      #6, D0              * add return value
+                JSR         WRITE_OFFSET_WORD   * get word from memory
+                MOVE.L      #ABSW_EA, D0        * add return value
                 BRA         _111_RETURN         * done decoding absolute word
 
 EA_ABS_LONG:
                 MOVE.B      #'$', (A0)+         * append '$'
-
-                MOVE.L      start_addr, D0      * load current instruction
-                MOVE.L      inst_offset, D1     * load instruction offset
-                ADD.L       D1, D0              * go to next instruction
-
-                MOVE.L      D0, A1              * load in address of instruction
-                MOVE.L      #0, D0              * reset D0
-                MOVE.L      (A1), D0            * copy long from memory
-
-                JSR         LONG_TO_HEX_STRING  * convert long to hex
-                LEA         long_string_buf, A1 * get converted long
-                JSR         WRITE_TO_BUFFER     * write long to buffer
-                ADD.L       #4, inst_offset     * update instruction offset by the number of bytes in long
-                MOVE.L      #7, D0              * add return value
+                JSR         WRITE_OFFSET_WORD   * get the first word from memory
+                JSR         WRITE_OFFSET_WORD   * get the second word to fully decode long word
+                MOVE.L      #ABSL_EA, D0        * add return value
                 BRA         _111_RETURN         * done decoding absolute long
 
 EA_IMM_DATA:
                 MOVE.B      #'#', (A0)+         * append '#'
                 MOVE.B      #'$', (A0)+         * append '$'
+                JSR         WRITE_OFFSET_WORD   * get word from memory
+                MOVE.L      #IMM_EA, D0         * add return value
+                BRA         _111_RETURN         * done decoding immediate data
 
+_111_ERROR:     MOVE.L      #ERROR, D0          * invalid addressing mode
+_111_RETURN:    RTS                             * return to caller
+
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       WRITE_OFFSET_WORD
+*
+* Description:
+*       Helper subroutine for DECODE_EA that writes the word value obtained by
+*       applying inst_offset to start_addr in memory to the buffer in A0.
+*
+* Parameters:
+*       A0 - Pointer to buffer to write too.
+*-------------------------------------------------------------------------------
+WRITE_OFFSET_WORD:
+                MOVEM.L     A1/D0-D1, -(SP)     * save registers
                 MOVE.L      start_addr, D0      * load current instruction
                 MOVE.L      inst_offset, D1     * load instruction offset
                 ADD.L       D1, D0              * go to next instruction
 
-                MOVE.L      D0, A1              * load in word from memory
+                MOVE.L      D0, A1              * load in address of instruction
                 MOVE.L      #0, D0              * reset D0
                 MOVE.W      (A1), D0            * copy word from memory
 
@@ -845,11 +848,32 @@ EA_IMM_DATA:
                 LEA         word_string_buf, A1 * get converted word
                 JSR         WRITE_TO_BUFFER     * write word to buffer
                 ADD.L       #2, inst_offset     * update instruction offset by the number of bytes in word
-                MOVE.L      #9, D0              * add return value
-                BRA         _111_RETURN         * done decoding immediate data
+                MOVEM.L     (SP)+, A1/D0-D1     * restore registers
+                RTS                             * return to caller
 
-_111_ERROR_EA:  MOVE.L      #-1, D0             * invalid addressing mode
-_111_RETURN:    RTS                             * return to caller
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       WRITE_REGISTER_NUM
+*
+* Description:
+*       Helper subroutine for DECODE_EA that writes the register number
+*       represented by the last 3 bits in in D0 to the buffer in A0.
+*
+* Parameters:
+*       A0 - Pointer to buffer to write too.
+*       D0 - Register number to write.
+*-------------------------------------------------------------------------------
+WRITE_REGISTER_NUM:
+                MOVEM.L     D1, -(SP)           * save registers
+                MOVE.L      D0, D1              * restore EA mode
+                ANDI.L      #$7, D1             * isolate 3 register bits
+                ADD.B       #'0', D1            * convert to ASCII
+                MOVE.B      D1, (A0)+           * write register number to buffer
+                MOVEM.L     (SP)+, D1           * restore registers
+                RTS                             * return to caller
+
 
 
 *-------------------------------------------------------------------------------
@@ -872,10 +896,10 @@ _111_RETURN:    RTS                             * return to caller
 * Return Value:
 *       D0 - The decoded size of the current instruction, where each of the
 *            following numbers correspond to the following sizes:
-*               -1: error - invalid instruction size mode
-*                1: byte  - .B
-*                2: word  - .W
-*                3: long  - .L
+*               ERROR:      error - invalid instruction size mode
+*               BYTE_VALUE: byte  - .B
+*               WORD_VALUE: word  - .W
+*               LONG_VALUE: long  - .L
 *-------------------------------------------------------------------------------
 DECODE_SIZE:
                 MOVEM.L     A1-A6/D1-D7, -(SP)  * save registers
@@ -894,20 +918,20 @@ DECODE_SIZE:
 
 DS_BYTE:        LEA         string_byte, A1
                 JSR         WRITE_TO_BUFFER
-                MOVE.L      #0, D0
+                MOVE.L      #BYTE_VALUE, D0
                 BRA         DS_RETURN
 
 DS_WORD:        LEA         string_word, A1
                 JSR         WRITE_TO_BUFFER
-                MOVE.L      #0, D0
+                MOVE.L      #WORD_VALUE, D0
                 BRA         DS_RETURN
 
 DS_LONG:        LEA         string_long, A1
                 JSR         WRITE_TO_BUFFER
-                MOVE.L      #0, D0
+                MOVE.L      #LONG_VALUE, D0
                 BRA         DS_RETURN
 
-DS_INVALID:     MOVE.L      #-1, D0             * add return value
+DS_INVALID:     MOVE.L      #ERROR, D0          * add return value
 DS_RETURN:      MOVEM.L     (SP)+, A1-A6/D1-D7  * restore registers
                 RTS                             * return to caller
 
@@ -1343,7 +1367,7 @@ CLEAR_SCREEN:
 *       WRITE_COMMA
 *
 * Description:
-*       Write a comma followed by an empty space.
+*       Write a comma followed by an empty space to the buffer in A0.
 *
 * Parameters:
 *       A0 - Pointer to buffer to write ', ' to.
