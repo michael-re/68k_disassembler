@@ -215,8 +215,40 @@ CODE_0000:
 *           - MOVE.B
 *-------------------------------------------------------------------------------
 CODE_0001:
-                JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                JSR         CLEAR_OUTPUT_BUFFER * prepare buffer
+                LEA         output_buffer, A0
+
+                * write opcode name to buffer
+                MOVE.B      #HT, (A0)+
+                LEA         string_moveb, A1
+                JSR         WRITE_TO_BUFFER
+
+                * decode source EA
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                JSR         DECODE_EA           * get source EA
+                JSR         WRITE_COMMA         * write ', ' to buffer
+                CMP         #-1, D0             * check for invalid source EA
+                BEQ         _0001_INVALID
+
+                * decode destination EA
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                JSR         LOAD_DST_EA         * load destination mode and reg
+                JSR         DECODE_EA           * get destination EA
+
+                * check destination EA, MOVE supports all but An and #imm
+                CMP         #-1, D0             * check for invalid EA
+                BEQ         _0001_INVALID
+
+                CMP         #2, D0              * check for An
+                BEQ         _0001_INVALID
+
+                CMP         #8, D0              * check for #imm
+                BEQ         _0001_INVALID
+
+                BRA         _0001_RETURN        * done decoding MOVE.B
+
+_0001_INVALID:  JSR         INVALID_OPCODE
+_0001_RETURN:   RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
@@ -258,7 +290,7 @@ CODE_0011:
 *           - JSR
 *-------------------------------------------------------------------------------
 CODE_0100:
-                JSR         CLEAR_OUTPUT_BUFFER
+                JSR         CLEAR_OUTPUT_BUFFER * prepare buffer
                 LEA         output_buffer, A0
 
                 * check if instruction is NOP
@@ -400,10 +432,7 @@ MATCHED_LEA:
 
                 BRA         _0100_INVALID
 
-
-LEA_CONTINUE:   MOVE.B      #',', (A0)+         * append ','
-                MOVE.B      #' ', (A0)+         * append ' '
-
+LEA_CONTINUE:   JSR         WRITE_COMMA         * write ', ' to buffer
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         LOAD_DST_EA         * load EA for destination
                 ANDI.L      #$0F, D0            * set to An
@@ -759,7 +788,7 @@ EA_MODE_111:                                    * (xxx).W, (xxx).L, #imm
                 CMP.L       #$39, D0            * check if absolute long addressing
                 BEQ         EA_ABS_LONG
 
-                CMP.L       #$3C, D1            * check if immediate data
+                CMP.L       #$3C, D0            * check if immediate data
                 BEQ         EA_IMM_DATA
 
                 BRA         _111_ERROR_EA       * something went wrong
@@ -771,7 +800,7 @@ EA_ABS_WORD:
                 MOVE.L      inst_offset, D1     * load instruction offset
                 ADD.L       D1, D0              * go to next instruction
 
-                MOVE.L      D0, A1              * load in address of instruction in memory
+                MOVE.L      D0, A1              * load in address of instruction
                 MOVE.L      #0, D0              * reset D0
                 MOVE.W      (A1), D0            * copy word from memory
 
@@ -789,7 +818,7 @@ EA_ABS_LONG:
                 MOVE.L      inst_offset, D1     * load instruction offset
                 ADD.L       D1, D0              * go to next instruction
 
-                MOVE.L      D0, A1              * load in address of instruction in memory
+                MOVE.L      D0, A1              * load in address of instruction
                 MOVE.L      #0, D0              * reset D0
                 MOVE.L      (A1), D0            * copy long from memory
 
@@ -801,7 +830,23 @@ EA_ABS_LONG:
                 BRA         _111_RETURN         * done decoding absolute long
 
 EA_IMM_DATA:
-                BRA         _111_ERROR_EA
+                MOVE.B      #'#', (A0)+         * append '#'
+                MOVE.B      #'$', (A0)+         * append '$'
+
+                MOVE.L      start_addr, D0      * load current instruction
+                MOVE.L      inst_offset, D1     * load instruction offset
+                ADD.L       D1, D0              * go to next instruction
+
+                MOVE.L      D0, A1              * load in word from memory
+                MOVE.L      #0, D0              * reset D0
+                MOVE.W      (A1), D0            * copy word from memory
+
+                JSR         WORD_TO_HEX_STRING  * convert word to hex
+                LEA         word_string_buf, A1 * get converted word
+                JSR         WRITE_TO_BUFFER     * write word to buffer
+                ADD.L       #2, inst_offset     * update instruction offset by the number of bytes in word
+                MOVE.L      #9, D0              * add return value
+                BRA         _111_RETURN         * done decoding immediate data
 
 _111_ERROR_EA:  MOVE.L      #-1, D0             * invalid addressing mode
 _111_RETURN:    RTS                             * return to caller
@@ -1293,6 +1338,22 @@ CLEAR_SCREEN:
                 RTS                             * return to caller
 
 
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       WRITE_COMMA
+*
+* Description:
+*       Write a comma followed by an empty space.
+*
+* Parameters:
+*       A0 - Pointer to buffer to write ', ' to.
+*-------------------------------------------------------------------------------
+WRITE_COMMA:
+            MOVE.B      #',', (A0)+         * append comma
+            MOVE.B      #' ', (A0)+         * append white space
+            RTS                             * return to caller
+
+
 
 *-------------------------------------------------------------------------------
 * Subroutine:
@@ -1464,5 +1525,6 @@ string_ro       DC.B        'RO',       0
 string_byte     DC.B        '.B',       0
 string_word     DC.B        '.W',       0
 string_long     DC.B        '.L',       0
+string_sep      DC.B        ', '        0
 
                 END    START            * last line of source
