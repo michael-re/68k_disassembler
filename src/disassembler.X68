@@ -179,11 +179,7 @@ DECODE_INSTRUCTION:
                 JSR         LONG_TO_HEX_STRING  * convert address to hex string
                 LEA         long_string_buf, A1 * load address of hex string
                 JSR         PRINT_STRING        * print hex string
-
-                * prepare buffer
-                JSR         CLEAR_OUTPUT_BUFFER * clear output buffer
-                LEA         output_buffer, A0   * load into A0
-                MOVE.B      #HT, (A0)+          * append tab to align opcode name
+                JSR         RESET_BUFFER_AND_OFFSET
 
                 LEA         OPCODE_TABLE, A1    * load address of opcode jump table
                 JSR         LOAD_CURRENT_WORD   * load word data of current instruction to decode
@@ -239,7 +235,6 @@ CODE_0000:
 *-------------------------------------------------------------------------------
 CODE_0001:
                 * write opcode name to buffer
-                MOVE.B      #HT, (A0)+
                 LEA         string_moveb, A1
                 JSR         WRITE_TO_BUFFER
                 JSR         PAD_BUFFER
@@ -282,8 +277,30 @@ _0001_RETURN:   RTS                             * return to caller
 *           - MOVEA.L
 *-------------------------------------------------------------------------------
 CODE_0010:
-                JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                * to determine if MOVE or MOVEA, we need to first check destination EA
+                JSR         LOAD_CURRENT_WORD
+                JSR         LOAD_DST_EA
+                JSR         DECODE_EA
+                JSR         RESET_BUFFER_AND_OFFSET
+
+                CMP         #ERROR, D0          * check for invalid EA
+                BEQ         _0010_INVALID
+
+                CMP         #AN_EA, D0          * if An, it's MOVEA.L
+                BEQ         MATCHED_MOVEAL
+                BRA         MATCHED_MOVEL
+
+MATCHED_MOVEAL: LEA         string_movel, A1
+                BRA         _0010_OPERANDS
+MATCHED_MOVEL:  LEA         string_movel, A1
+
+_0010_OPERANDS:
+                JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
+                JMP         DECODE_MOVE_EA
+
+_0010_INVALID:  JSR         INVALID_OPCODE
+_0010_RETURN:   RTS                             * return to caller
 
 *-------------------------------------------------------------------------------
 * Subroutine:
@@ -676,6 +693,23 @@ NEXT_INSTRUCTION:
                 MOVE.L      D0, start_addr      * write value to variable
                 MOVE.L      #2, inst_offset     * reset instruction offset
                 MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
+                RTS                             * return to caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       RESET_BUFFER_AND_OFFSET
+*
+* Description:
+*       Resets everything related to the current opcode by clearing the output
+*       buffer and instruction offset.
+*-------------------------------------------------------------------------------
+RESET_BUFFER_AND_OFFSET:
+                JSR         CLEAR_OUTPUT_BUFFER * clear output buffer
+                LEA         output_buffer, A0   * load into A0
+                MOVE.B      #HT, (A0)+          * append tab to align opcode name
+                MOVE.L      #2, inst_offset     * reset instruction offset
                 RTS                             * return to caller
 
 
@@ -1392,7 +1426,7 @@ PAD_LOOP:       CMP.B       #0, (A0)            * check for empty value
                 BEQ         PAD_ADD             * add padding
                 BRA         PAD_SKIP            * skip padding
 
-PAD_ADD:        MOVE.B      #' ', (A0)          * padd buffer with white sapce
+PAD_ADD:        MOVE.B      #' ', (A0)          * pad buffer with white space
 PAD_SKIP        ADD         #1, A0              * increment to the next byte
                 DBF         D0, PAD_LOOP        * repeat
                 MOVEM.L     (SP)+, D0           * restore registers
