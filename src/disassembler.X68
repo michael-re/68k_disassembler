@@ -252,7 +252,7 @@ DECODE_MOVE_EA: * decode source EA
                 JSR         DECODE_EA           * get destination EA
 
                 * check destination EA, MOVE supports all but An and #imm
-                CMP         #ERROR, D0         * check for invalid EA
+                CMP         #ERROR, D0          * check for invalid EA
                 BEQ         _0001_INVALID
 
                 CMP         #AN_EA, D0          * check for An
@@ -288,16 +288,32 @@ CODE_0010:
 
                 CMP         #AN_EA, D0          * if An, it's MOVEA.L
                 BEQ         MATCHED_MOVEAL
-                BRA         MATCHED_MOVEL
 
-MATCHED_MOVEAL: LEA         string_movel, A1
-                BRA         _0010_OPERANDS
-MATCHED_MOVEL:  LEA         string_movel, A1
-
-_0010_OPERANDS:
+                * decode MOVE.L
+                LEA         string_movel, A1
                 JSR         WRITE_TO_BUFFER
                 JSR         PAD_BUFFER
                 JMP         DECODE_MOVE_EA
+
+MATCHED_MOVEAL:
+                * print "MOVEA.L" t buffer
+                LEA         string_moveal, A1
+                JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
+
+                * decode source EA - MOVEA supports all EA for source
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                JSR         DECODE_EA           * get source EA
+                JSR         WRITE_COMMA         * write ', ' to buffer
+                CMP         #ERROR, D0          * check for invalid source EA
+                BEQ         _0001_INVALID
+
+                * decode destination EA - MOVEA only supports An for destination
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                JSR         LOAD_DST_EA         * load destination mode and reg
+                JSR         DECODE_EA           * get destination EA
+                CMP         #AN_EA, D0          * check if An EA
+                BEQ         _0010_RETURN        * done decoding MOVEA.L
 
 _0010_INVALID:  JSR         INVALID_OPCODE
 _0010_RETURN:   RTS                             * return to caller
