@@ -242,6 +242,7 @@ CODE_0001:
                 MOVE.B      #HT, (A0)+
                 LEA         string_moveb, A1
                 JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
 
 DECODE_MOVE_EA: * decode source EA
                 JSR         LOAD_CURRENT_WORD   * load current instruction
@@ -367,9 +368,7 @@ MATCHED_NOT:
                 BEQ         _0100_INVALID
 
                 * align start of operands
-                MOVE.B      #' ', (A0)+
-                MOVE.B      #' ', (A0)+
-                MOVE.B      #' ', (A0)+
+                JSR         PAD_BUFFER
 
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         DECODE_EA           * get addressing mode
@@ -389,6 +388,7 @@ MATCHED_JSR:
                 * load "JSR" into output buffer
                 LEA         string_jsr, A1
                 JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
 
                 * JSR supports the following EA - (An), (xxx).W, (xxx).L
                 *
@@ -429,6 +429,7 @@ MATCHED_LEA:
                 * load "LEA" into output buffer
                 LEA         string_lea, A1
                 JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
 
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         DECODE_EA           * get source EA
@@ -621,6 +622,7 @@ INVALID_OPCODE:
 
                 MOVE.B      #HT, (A0)+          * append tab character
                 JSR         WRITE_TO_BUFFER     * write DATA to buffer
+                JSR         PAD_BUFFER          * add padding to buffer
                 MOVE.B      #'$', (A0)+         * append '$'
 
                 * load the value at start_addr into D0 and print it
@@ -1355,6 +1357,7 @@ CLEAR_SCREEN:
                 RTS                             * return to caller
 
 
+
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       WRITE_COMMA
@@ -1363,12 +1366,37 @@ CLEAR_SCREEN:
 *       Write a comma followed by an empty space to the buffer in A0.
 *
 * Parameters:
-*       A0 - Pointer to buffer to write ', ' to.
+*       A0 - Pointer to buffer where ', ' will be written.
 *-------------------------------------------------------------------------------
 WRITE_COMMA:
-            MOVE.B      #',', (A0)+         * append comma
-            MOVE.B      #' ', (A0)+         * append white space
-            RTS                             * return to caller
+            MOVE.B          #',', (A0)+         * append comma
+            MOVE.B          #' ', (A0)+         * append white space
+            RTS                                 * return to caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       PAD_BUFFER
+*
+* Description:
+*       Pads the output_buffer with whitespace to ensure it has a length of 10
+*       characters.
+*-------------------------------------------------------------------------------
+PAD_BUFFER:
+                MOVEM.L     D0, -(SP)           * save registers
+                LEA         output_buffer, A0   * load in output buffer
+                MOVE.L      #10, D0             * loop counter
+
+PAD_LOOP:       CMP.B       #0, (A0)            * check for empty value
+                BEQ         PAD_ADD             * add padding
+                BRA         PAD_SKIP            * skip padding
+
+PAD_ADD:        MOVE.B      #' ', (A0)          * padd buffer with white sapce
+PAD_SKIP        ADD         #1, A0              * increment to the next byte
+                DBF         D0, PAD_LOOP        * repeat
+                MOVEM.L     (SP)+, D0           * restore registers
+                RTS                             * return to caller
 
 
 
@@ -1506,42 +1534,42 @@ end_msg         DC.B        'Enter ending memory address   : $', 0
 empty_line      DC.B        ' ', CR, LF, 0
 
 * -------------- op codes and other values -------------------------------------
-string_data     DC.B        'DATA    ', 0
-string_nop      DC.B        'NOP     ', 0
-string_rts      DC.B        'RTS     ', 0
-string_jsr      DC.B        'JSR     ', 0
+string_data     DC.B        'DATA',    0
+string_nop      DC.B        'NOP',     0
+string_rts      DC.B        'RTS',     0
+string_jsr      DC.B        'JSR',     0
 
-string_moveq    DC.B        'MOVEQ.L ', 0
-string_moveb    DC.B        'MOVE.B  ', 0
-string_movew    DC.B        'MOVE.W  ', 0
-string_movel    DC.B        'MOVE.L  ', 0
+string_moveq    DC.B        'MOVEQ.L', 0
+string_moveb    DC.B        'MOVE.B',  0
+string_movew    DC.B        'MOVE.W',  0
+string_movel    DC.B        'MOVE.L',  0
 
-string_moveaw   DC.B        'MOVEA.W ', 0
-string_moveal   DC.B        'MOVEA.L ', 0
-string_lea      DC.B        'LEA.L   ', 0
+string_moveaw   DC.B        'MOVEA.W', 0
+string_moveal   DC.B        'MOVEA.L', 0
+string_lea      DC.B        'LEA.L',   0
 
-string_bcc      DC.B        'BCC     ', 0
-string_bgt      DC.B        'BGT     ', 0
-string_ble      DC.B        'BLE     ', 0
-string_beq      DC.B        'BEQ     ', 0
-string_bra      DC.B        'BRA     ', 0
+string_bcc      DC.B        'BCC',     0
+string_bgt      DC.B        'BGT',     0
+string_ble      DC.B        'BLE',     0
+string_beq      DC.B        'BEQ',     0
+string_bra      DC.B        'BRA',     0
 
-string_not      DC.B        'NOT',      0
-string_or       DC.B        'OR',       0
-string_and      DC.B        'AND',      0
+string_not      DC.B        'NOT',     0
+string_or       DC.B        'OR',      0
+string_and      DC.B        'AND',     0
 
-string_add      DC.B        'ADD',      0
-string_adda     DC.B        'ADDA',     0
-string_addq     DC.B        'ADDQ',     0
-string_sub      DC.B        'SUB',      0
+string_add      DC.B        'ADD',     0
+string_adda     DC.B        'ADDA',    0
+string_addq     DC.B        'ADDQ',    0
+string_sub      DC.B        'SUB',     0
 
-string_ls       DC.B        'LS',       0
-string_as       DC.B        'AS',       0
-string_ro       DC.B        'RO',       0
+string_ls       DC.B        'LS',      0
+string_as       DC.B        'AS',      0
+string_ro       DC.B        'RO',      0
 
-string_byte     DC.B        '.B',       0
-string_word     DC.B        '.W',       0
-string_long     DC.B        '.L',       0
-string_sep      DC.B        ', '        0
+string_byte     DC.B        '.B',      0
+string_word     DC.B        '.W',      0
+string_long     DC.B        '.L',      0
+string_sep      DC.B        ', '       0
 
                 END    START            * last line of source
