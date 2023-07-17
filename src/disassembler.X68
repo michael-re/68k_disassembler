@@ -278,6 +278,7 @@ _0001_RETURN:   RTS                             * return to caller
 *-------------------------------------------------------------------------------
 CODE_0010:
                 * to determine if MOVE or MOVEA, we need to first check destination EA
+                MOVE.L      #LONG_VALUE, D7
                 JSR         LOAD_CURRENT_WORD
                 JSR         LOAD_DST_EA
                 JSR         DECODE_EA
@@ -296,7 +297,7 @@ CODE_0010:
                 JMP         DECODE_MOVE_EA
 
 MATCHED_MOVEAL:
-                * print "MOVEA.L" t buffer
+                * print "MOVEA.L" to buffer
                 LEA         string_moveal, A1
                 JSR         WRITE_TO_BUFFER
                 JSR         PAD_BUFFER
@@ -785,6 +786,8 @@ RESET_BUFFER_AND_OFFSET:
 *       A0 - Pointer to buffer to write too.
 *       D0 - The first 6 bits of the EA to decode. It should be formatted as
 *            follows: <Mode> <Xn> --> 0000 0000 00xx xxxx
+*       D7 - Set to #LONG_VALUE if intruction can take #<data> and supports long
+*            size.
 *
 * Return Value:
 *       D0 - The effective addressing mode of the current instruction.
@@ -897,7 +900,13 @@ EA_IMM_DATA:
                 MOVE.B      #'#', (A0)+         * append '#'
                 MOVE.B      #'$', (A0)+         * append '$'
                 JSR         WRITE_OFFSET_WORD   * get word from memory
-                MOVE.L      #IMM_EA, D0         * add return value
+
+                CMP         #LONG_VALUE, D7
+                BEQ         ADD_NEXT_WORD
+                BRA         EA_IMM_DATA_N
+
+ADD_NEXT_WORD:  JSR         WRITE_OFFSET_WORD   * get next word from memory
+EA_IMM_DATA_N:  MOVE.L      #IMM_EA, D0         * add return value
                 BRA         _111_RETURN         * done decoding immediate data
 
 _111_ERROR:     MOVE.L      #ERROR, D0          * invalid addressing mode
