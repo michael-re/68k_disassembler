@@ -306,7 +306,7 @@ MATCHED_MOVEAL:
                 JSR         DECODE_EA           * get source EA
                 JSR         WRITE_COMMA         * write ', ' to buffer
                 CMP         #ERROR, D0          * check for invalid source EA
-                BEQ         _0001_INVALID
+                BEQ         _0010_INVALID
 
                 * decode destination EA - MOVEA only supports An for destination
                 JSR         LOAD_CURRENT_WORD   * load current instruction
@@ -328,8 +328,46 @@ _0010_RETURN:   RTS                             * return to caller
 *           - MOVEA.W
 *-------------------------------------------------------------------------------
 CODE_0011:
-                JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                * to determine if MOVE or MOVEA, we need to first check destination EA
+                JSR         LOAD_CURRENT_WORD
+                JSR         LOAD_DST_EA
+                JSR         DECODE_EA
+                JSR         RESET_BUFFER_AND_OFFSET
+
+                CMP         #ERROR, D0          * check for invalid EA
+                BEQ         _0011_INVALID
+
+                CMP         #AN_EA, D0          * if An, it's MOVEA.W
+                BEQ         MATCHED_MOVEAW
+
+                * decode MOVE.W
+                LEA         string_movew, A1
+                JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
+                JMP         DECODE_MOVE_EA
+
+MATCHED_MOVEAW:
+                * print "MOVEA.W" t buffer
+                LEA         string_moveaw, A1
+                JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
+
+                * decode source EA - MOVEA supports all EA for source
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                JSR         DECODE_EA           * get source EA
+                JSR         WRITE_COMMA         * write ', ' to buffer
+                CMP         #ERROR, D0          * check for invalid source EA
+                BEQ         _0011_INVALID
+
+                * decode destination EA - MOVEA only supports An for destination
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                JSR         LOAD_DST_EA         * load destination mode and reg
+                JSR         DECODE_EA           * get destination EA
+                CMP         #AN_EA, D0          * check if An EA
+                BEQ         _0011_RETURN        * done decoding MOVEA.L
+
+_0011_INVALID:  JSR         INVALID_OPCODE
+_0011_RETURN:   RTS                             * return to caller
 
 *-------------------------------------------------------------------------------
 * Subroutine:
