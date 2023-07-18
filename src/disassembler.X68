@@ -587,72 +587,46 @@ CODE_1000:
                 LEA         string_or, A1
                 JSR         WRITE_TO_BUFFER
 
-                * print size
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_SIZE
-
-                * check if valid size was decoded
-                MOVE.L      D0, D7
-                CMP         #ERROR, D0
+                * decode operands
+                JSR         DECODE_DN_EA_DN_OPERANDS
+                CMP         #ERROR, D0          * check if destination is invalid
                 BEQ         _1000_INVALID
 
-                * align start of operands
-                JSR         PAD_BUFFER
+                CMP.L       #ERROR, D1          * check if source is invalid
+                BEQ         _1000_INVALID
 
-                * get direction (<ea> --> Dn || Dn --> <ea>)
-                JSR         LOAD_CURRENT_WORD
-                ANDI.W      #DN_TO_EA, D0
-                CMP         #DN_TO_EA, D0
-                BEQ         OR_DN_EA
+                * validate decoded effective address fields
+                CMP.L       #DN_TO_EA, D2
+                BEQ         OR_DN_TO_EA_CHECK
 
-                * decode <ea> --> Dn: if the location specified is a source
+                * decode <ea>, Dn: if the location specified is a source
                 * operand, only data addressing modes can be used: Dn, (An),
                 * (An)+, -(An), (xxx).W, (xxx).L, #<data> -- everything but An
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_EA
 
-                CMP         #ERROR, D0
+                CMP.L       #AN_EA, D1          * check if source is An
                 BEQ         _1000_INVALID
 
-                CMP         #AN_EA, D0
-                BEQ         _1000_INVALID
-
-                * decode destination
-                JSR         WRITE_COMMA
-                JSR         LOAD_CURRENT_WORD
-                JSR         LOAD_DST_EA
-                ANDI.L      #$07, D0
-                JSR         DECODE_EA
-
-                CMP         #DN_EA, D0
+                CMP.L       #DN_EA, D0          * check if destination is not Dn
                 BNE         _1000_INVALID
+
                 BRA         _1000_RETURN
 
-OR_DN_EA:
-                * decode Dn --> <ea>: if the location specified is a destination
+                * decode Dn, <ea>: if the location specified is a destination
                 * operand, only memory alterable addressing modes can be used:
-                *       (An), (An)+, -(An), (xxx).W, (xxx).L
-                JSR         LOAD_CURRENT_WORD
-                JSR         LOAD_DST_EA
-                ANDI.L      #$07, D0
-                JSR         DECODE_EA
-
-                CMP         #DN_EA, D0
+                * (An), (An)+, -(An), (xxx).W, (xxx).L
+                *
+                * DOES NOT SUPPORT: Dn, An, #<data>
+OR_DN_TO_EA_CHECK:
+                CMP.L       #DN_EA, D1          * check if source is not Dn
                 BNE         _1000_INVALID
 
-                * decode WRITE_COMMA
-                JSR         LOAD_CURRENT_WORD
-                JSR         WRITE_COMMA
-                JSR         DECODE_EA
-
-                * EA does not support Dn or An
-                CMP         #ERROR, D0
+                CMP.L       #DN_EA, D0          * check if destination is Dn
                 BEQ         _1000_INVALID
 
-                CMP         #DN_EA, D0
+                CMP.L       #AN_EA, D0          * check if destination is An
                 BEQ         _1000_INVALID
 
-                CMP         #AN_EA, D0
+                CMP.L       #IMM_EA, D0         * check if destination is #<data>
                 BEQ         _1000_INVALID
 
                 BRA         _1000_RETURN
@@ -753,6 +727,84 @@ CODE_1110:
 CODE_1111:
                 JSR         INVALID_OPCODE
                 RTS                             * return to caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       DECODE_DN_EA_DN_OPERANDS
+*
+* Description:
+*       Decodes the operands for instructions that have operands in the form of
+*       (<ea>, Dn) or (Dn, <ea>).
+*
+* Return value:
+*       D0 - destination EA value
+*       D1 - source EA value
+*       D2 - direction
+*-------------------------------------------------------------------------------
+DECODE_DN_EA_DN_OPERANDS:
+                * print size
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_SIZE
+
+                * check if valid size was decoded
+                MOVE.L      D0, D7
+                CMP         #ERROR, D0
+                BEQ         DDEDO_INVALID
+
+                * align start of operands
+                JSR         PAD_BUFFER
+
+                * get direction (<ea> --> Dn || Dn --> <ea>)
+                JSR         LOAD_CURRENT_WORD
+                ANDI.W      #DN_TO_EA, D0       * isolate direction bit
+                MOVE.L      D0, D2              * save direction bit
+                CMP         #DN_TO_EA, D0       * check if Dn, <ea>
+                BEQ         OPERAND_DN_EA
+
+                * decode <ea>, Dn
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         DECODE_EA           * decode source operand
+                MOVE.L      D0, D1              * save source EA to D1
+
+                CMP.L       #ERROR, D0          * check if it's invalid
+                BEQ         DDEDO_INVALID
+
+                * decode destination
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         WRITE_COMMA         * write ', '
+                JSR         LOAD_DST_EA         * get destination EA
+                ANDI.L      #$07, D0            * set to Dn mode
+                JSR         DECODE_EA           * decode destination
+
+                CMP.L       #ERROR, D0          * check if it's invalid
+                BEQ         DDEDO_INVALID
+                BRA         DDEDO_RETURN
+
+OPERAND_DN_EA:
+                * decode Dn, <ea>
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         LOAD_DST_EA         * Dn is source, load it
+                ANDI.L      #$07, D0            * set to Dn mode
+                JSR         DECODE_EA           * decode
+                MOVE.L      D0, D1              * save source EA to D1
+
+                CMP.L       #DN_EA, D0          * check if it's invalid, must be Dn
+                BNE         DDEDO_INVALID
+
+                * decode destination
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         WRITE_COMMA         * write ', '
+                JSR         DECODE_EA           * decode destination
+
+                CMP.L       #ERROR, D0          * check if it's invalid
+                BEQ         DDEDO_INVALID
+                BRA         DDEDO_RETURN
+
+DDEDO_INVALID:  MOVE.L      #ERROR, D0
+                MOVE.L      #ERROR, D1
+DDEDO_RETURN:   RTS                             * return to caller
 
 
 
