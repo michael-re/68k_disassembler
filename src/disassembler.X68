@@ -588,7 +588,7 @@ CODE_1000:
                 JSR         WRITE_TO_BUFFER
 
                 * decode operands
-                JSR         DECODE_DN_EA_DN_OPERANDS
+OR_OPERANDS:    JSR         DECODE_DN_EA_DN_OPERANDS
                 CMP         #ERROR, D0          * check if destination is invalid
                 BEQ         _1000_INVALID
 
@@ -597,7 +597,7 @@ CODE_1000:
 
                 * validate decoded effective address fields
                 CMP.L       #DN_TO_EA, D2
-                BEQ         OR_DN_TO_EA_CHECK
+                BEQ         DNEA_DN_AN_IMM_CHECK
 
                 * decode <ea>, Dn: if the location specified is a source
                 * operand, only data addressing modes can be used: Dn, (An),
@@ -616,7 +616,7 @@ CODE_1000:
                 * (An), (An)+, -(An), (xxx).W, (xxx).L
                 *
                 * DOES NOT SUPPORT: Dn, An, #<data>
-OR_DN_TO_EA_CHECK:
+DNEA_DN_AN_IMM_CHECK:
                 CMP.L       #DN_EA, D1          * check if source is not Dn
                 BNE         _1000_INVALID
 
@@ -644,8 +644,37 @@ _1000_RETURN:   RTS                             * return to caller
 *           - SUB
 *-------------------------------------------------------------------------------
 CODE_1001:
-                JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                * load "SUB" into output buffer
+                LEA         string_sub, A1
+                JSR         WRITE_TO_BUFFER
+
+                * decode operands
+                JSR         DECODE_DN_EA_DN_OPERANDS
+                CMP         #ERROR, D0          * check if destination is invalid
+                BEQ         _1001_INVALID
+
+                CMP.L       #ERROR, D1          * check if source is invalid
+                BEQ         _1001_INVALID
+
+                * validate decoded effective address fields
+                CMP.L       #DN_TO_EA, D2
+                BEQ         DNEA_DN_AN_IMM_CHECK
+
+                * decode <ea>, Dn: if the location specified is a source
+                * operand, all addressing modes can be used.
+                CMP.L       #DN_EA, D0          * check if destination is not Dn
+                BNE         _1000_INVALID
+
+                * An only supports word and long size instruction
+                CMP.L       #AN_EA, D0
+                BEQ         VALIDATE_ANB
+                BRA         _1000_RETURN
+
+VALIDATE_ANB:   CMP         #BYTE_VALUE, D7
+                BNE         _1001_RETURN
+
+_1001_INVALID:  JSR         INVALID_OPCODE
+_1001_RETURN:   RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
@@ -681,6 +710,10 @@ CODE_1011:
 *           - AND
 *-------------------------------------------------------------------------------
 CODE_1100:
+                * load "AND" into output buffer
+                LEA         string_and, A1
+                JSR         WRITE_TO_BUFFER
+                JMP         OR_OPERANDS         * AND has the same pattern as OR
                 JSR         INVALID_OPCODE
                 RTS                             * return to caller
 
