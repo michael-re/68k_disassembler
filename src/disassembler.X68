@@ -437,7 +437,7 @@ MATCHED_NOT:
 
                 * print size
                 JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_SIZE
+                JSR         DECODE_SIZE_78
 
                 * check if valid size was decoded
                 CMP         #ERROR, D0
@@ -649,7 +649,7 @@ CODE_1001:
                 JSR         WRITE_TO_BUFFER
 
                 * decode operands
-                JSR         DECODE_DN_EA_DN_OPERANDS
+SUB_PATTERN:    JSR         DECODE_DN_EA_DN_OPERANDS
                 CMP         #ERROR, D0          * check if destination is invalid
                 BEQ         _1001_INVALID
 
@@ -728,8 +728,39 @@ CODE_1100:
 *           - ADDA
 *-------------------------------------------------------------------------------
 CODE_1101:
-                JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$C0, D0
+                CMP         #$C0, D0          * check if ADDA
+                BEQ         MATCHED_ADDA
+
+                * decode ADD - it has the same pattern as SUB
+                LEA         string_add, A1
+                JSR         WRITE_TO_BUFFER
+                JMP         SUB_PATTERN
+
+MATCHED_ADDA:
+                LEA         string_adda, A1
+                JSR         WRITE_TO_BUFFER
+
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_SIZE_9
+                MOVE.L      D0, D7
+
+                JSR         LOAD_CURRENT_WORD
+                JSR         PAD_BUFFER
+                JSR         DECODE_EA
+                CMP         #ERROR, D0
+                BEQ         _1101_INVALID
+
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$40, D0
+                JSR         WRITE_COMMA
+                JSR         LOAD_DST_EA
+                JSR         DECODE_EA
+                BRA         _1101_RETURN
+
+_1101_INVALID:  JSR         INVALID_OPCODE
+_1101_RETURN:   RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
@@ -779,7 +810,7 @@ CODE_1111:
 DECODE_DN_EA_DN_OPERANDS:
                 * print size
                 JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_SIZE
+                JSR         DECODE_SIZE_78
 
                 * check if valid size was decoded
                 MOVE.L      D0, D7
@@ -1133,16 +1164,16 @@ WRITE_REGISTER_NUM:
 
 *-------------------------------------------------------------------------------
 * Subroutine:
-*       DECODE_SIZE
+*       DECODE_SIZE_78
 *
 * Description:
 *       Decodes the size of the instruction in D0 and writes it to the buffer in
 *       A0. On exit, A0 will point to the last byte written to the buffer.
 *
-*       Keep in mind, this only works for opcodes where bit 7 and 6 hold the
+*       Keep in mind, this only works for opcodes where bit 7 and 8 hold the
 *       the size of the instruction. THIS DOES NOT WORK FOR instruction where
 *       the size is determined by a single bit or other bit fields in the
-*       instruction
+*       instruction.
 *
 * Parameters:
 *       A0 - Pointer to buffer to write too.
@@ -1156,9 +1187,9 @@ WRITE_REGISTER_NUM:
 *               WORD_VALUE: word  - .W
 *               LONG_VALUE: long  - .L
 *-------------------------------------------------------------------------------
-DECODE_SIZE:
-                MOVEM.L     A1-A6/D1-D7, -(SP)  * save registers
-                ANDI.L      #$C0, D0            * isolate bits 7 and 6
+DECODE_SIZE_78:
+                MOVEM.L     A1, -(SP)           * save registers
+                ANDI.L      #$C0, D0            * isolate bits 7 and 8
 
                 CMP.L       #$0, D0             * check if byte
                 BEQ         DS_BYTE
@@ -1187,10 +1218,39 @@ DS_LONG:        LEA         string_long, A1
                 BRA         DS_RETURN
 
 DS_INVALID:     MOVE.L      #ERROR, D0          * add return value
-DS_RETURN:      MOVEM.L     (SP)+, A1-A6/D1-D7  * restore registers
+DS_RETURN:      MOVEM.L     (SP)+, A1           * restore registers
                 RTS                             * return to caller
 
 
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       DECODE_SIZE_9
+*
+* Description:
+*       Decodes the size of the instruction in D0 and writes it to the buffer in
+*       A0. On exit, A0 will point to the last byte written to the buffer.
+*
+*       Keep in mind, this only works for opcodes where bit 9 holds the
+*       the size of the instruction.
+*
+* Parameters:
+*       A0 - Pointer to buffer to write too.
+*       D0 - Instruction to decode the size of.
+*
+* Return Value:
+*       D0 - The decoded size of the current instruction, where each of the
+*            following numbers correspond to the following sizes:
+*               WORD_VALUE: word  - .W
+*               LONG_VALUE: long  - .L
+*-------------------------------------------------------------------------------
+DECODE_SIZE_9:
+                MOVEM.L     A1, -(SP)           * save registers
+                ANDI.L      #$100, D0           * isolate bit 9
+                CMP.L       #$000, D0           * check if word
+                BEQ         DS_WORD             * return word
+                BRA         DS_LONG             * return long
+                RTS                             * return to caller
 
 
 
