@@ -37,6 +37,10 @@ BYTE_VALUE      EQU         1
 WORD_VALUE      EQU         2
 LONG_VALUE      EQU         3
 
+* directions
+EA_TO_DN        EQU         $0000
+DN_TO_EA        EQU         $0100
+
 
 START:          ORG         CODE_SEC
                 LEA         welcome_msg, A1     * load welcome message
@@ -579,8 +583,82 @@ CODE_0111:
 *           - OR
 *-------------------------------------------------------------------------------
 CODE_1000:
-                JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                * load "OR" into output buffer
+                LEA         string_or, A1
+                JSR         WRITE_TO_BUFFER
+
+                * print size
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_SIZE
+
+                * check if valid size was decoded
+                MOVE.L      D0, D7
+                CMP         #ERROR, D0
+                BEQ         _1000_INVALID
+
+                * align start of operands
+                JSR         PAD_BUFFER
+
+                * get direction (<ea> --> Dn || Dn --> <ea>)
+                JSR         LOAD_CURRENT_WORD
+                ANDI.W      #DN_TO_EA, D0
+                CMP         #DN_TO_EA, D0
+                BEQ         OR_DN_EA
+
+                * decode <ea> --> Dn: if the location specified is a source
+                * operand, only data addressing modes can be used: Dn, (An),
+                * (An)+, -(An), (xxx).W, (xxx).L, #<data> -- everything but An
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_EA
+
+                CMP         #ERROR, D0
+                BEQ         _1000_INVALID
+
+                CMP         #AN_EA, D0
+                BEQ         _1000_INVALID
+
+                * decode destination
+                JSR         WRITE_COMMA
+                JSR         LOAD_CURRENT_WORD
+                JSR         LOAD_DST_EA
+                ANDI.L      #$07, D0
+                JSR         DECODE_EA
+
+                CMP         #DN_EA, D0
+                BNE         _1000_INVALID
+                BRA         _1000_RETURN
+
+OR_DN_EA:
+                * decode Dn --> <ea>: if the location specified is a destination
+                * operand, only memory alterable addressing modes can be used:
+                *       (An), (An)+, -(An), (xxx).W, (xxx).L
+                JSR         LOAD_CURRENT_WORD
+                JSR         LOAD_DST_EA
+                ANDI.L      #$07, D0
+                JSR         DECODE_EA
+
+                CMP         #DN_EA, D0
+                BNE         _1000_INVALID
+
+                * decode WRITE_COMMA
+                JSR         LOAD_CURRENT_WORD
+                JSR         WRITE_COMMA
+                JSR         DECODE_EA
+
+                * EA does not support Dn or An
+                CMP         #ERROR, D0
+                BEQ         _1000_INVALID
+
+                CMP         #DN_EA, D0
+                BEQ         _1000_INVALID
+
+                CMP         #AN_EA, D0
+                BEQ         _1000_INVALID
+
+                BRA         _1000_RETURN
+
+_1000_INVALID:  JSR         INVALID_OPCODE
+_1000_RETURN:   RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
@@ -786,8 +864,8 @@ RESET_BUFFER_AND_OFFSET:
 *       A0 - Pointer to buffer to write too.
 *       D0 - The first 6 bits of the EA to decode. It should be formatted as
 *            follows: <Mode> <Xn> --> 0000 0000 00xx xxxx
-*       D7 - Set to #LONG_VALUE if intruction can take #<data> and supports long
-*            size.
+*       D7 - The size of the current instruction. Set to #LONG_VALUE if
+*            instruction can take #<data> and supports long size.
 *
 * Return Value:
 *       D0 - The effective addressing mode of the current instruction.
