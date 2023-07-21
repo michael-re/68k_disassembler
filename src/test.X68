@@ -474,8 +474,153 @@ START:      ORG         $00004000
             LEA.L       LONG, A4
             LEA.L       lea_test, A5
 
-lea_test    DC.W        'lea test'
+lea_test    DC.W        $0
+            DC.W        $0
+            DC.W        $0
+            DC.W        $0
+
+*----------------------------- GROUP 6 AND/OR/NOT ------------------------------
+********************************************************************************
+*  AND/OR: ALL PASSED      (FIX AN EA with NOT)                                *
+********************************************************************************
+            *-------------------------------------------------------------------
+            *-------------------------------- AND ------------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            AND.B       D0, D1
+            AND.B       (A0), D2
+            AND.B       (A1)+, D3
+            AND.B       -(A2), D4
+            AND.B       WORD, D5
+            AND.B       LONG, D6
+            AND.B       #12, D7
+
+            NOP
+            AND.B       D0, (A0)
+            AND.B       D1, (A1)+
+            AND.B       D2, -(A2)
+            AND.B       D3, WORD
+            AND.B       D4, LONG
+
+            NOP
+            NOP
+            AND.W       D0, D1
+            AND.W       (A0), D2
+            AND.W       (A1)+, D3
+            AND.W       -(A2), D4
+            AND.W       WORD, D5
+            AND.W       LONG, D6
+            AND.W       #12, D7
+
+            NOP
+            AND.W       D0, (A0)
+            AND.W       D1, (A1)+
+            AND.W       D2, -(A2)
+            AND.W       D3, WORD
+            AND.W       D4, LONG
+
+            NOP
+            NOP
+            AND.L       D0, D1
+            AND.L       (A0), D2
+            AND.L       (A1)+, D3
+            AND.L       -(A2), D4
+            AND.L       WORD, D5
+            AND.L       LONG, D6
+            AND.L       #12, D7
+
+            NOP
+            AND.L       D0, (A0)
+            AND.L       D1, (A1)+
+            AND.L       D2, -(A2)
+            AND.L       D3, WORD
+            AND.L       D4, LONG
 
 
+            *-------------------------------------------------------------------
+            *-------------------------------- OR -------------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            OR.B       D0, D1
+            OR.B       (A0), D2
+            OR.B       (A1)+, D3
+            OR.B       -(A2), D4
+            OR.B       WORD, D5
+            OR.B       LONG, D6
+            OR.B       #12, D7
+
+            NOP
+            OR.B       D0, (A0)
+            OR.B       D1, (A1)+
+            OR.B       D2, -(A2)
+            OR.B       D3, WORD
+            OR.B       D4, LONG
+
+            NOP
+            NOP
+            OR.W       D0, D1
+            OR.W       (A0), D2
+            OR.W       (A1)+, D3
+            OR.W       -(A2), D4
+            OR.W       WORD, D5
+            OR.W       LONG, D6
+            OR.W       #12, D7
+
+            NOP
+            OR.W       D0, (A0)
+            OR.W       D1, (A1)+
+            OR.W       D2, -(A2)
+            OR.W       D3, WORD
+            OR.W       D4, LONG
+
+            NOP
+            NOP
+            OR.L       D0, D1
+            OR.L       (A0), D2
+            OR.L       (A1)+, D3
+            OR.L       -(A2), D4
+            OR.L       WORD, D5
+            OR.L       LONG, D6
+            OR.L       #12, D7
+
+            NOP
+            OR.L       D0, (A0)
+            OR.L       D1, (A1)+
+            OR.L       D2, -(A2)
+            OR.L       D3, WORD
+            OR.L       D4, LONG
+
+
+            *-------------------------------------------------------------------
+            *-------------------------------- NOT ------------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            NOT.B       D3
+            NOT.B       (A0)        -- DOES NOT PASS
+            NOT.B       (A1)+
+            NOT.B       -(A2)
+            NOT.B       WORD
+            NOT.B       LONG
+
+            NOP
+            NOP
+            NOT.W       D3
+            NOT.W       (A0)         -- DOES NOT PASS
+            NOT.W       (A1)+
+            NOT.W       -(A2)
+            NOT.W       WORD
+            NOT.W       LONG
+
+            NOP
+            NOP
+            NOT.L       D3
+            NOT.L       (A0)         -- DOES NOT PASS
+            NOT.L       (A1)+
+            NOT.L       -(A2)
+            NOT.L       WORD
+            NOT.L       LONG
 
             END         START
