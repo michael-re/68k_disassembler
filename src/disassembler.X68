@@ -541,8 +541,57 @@ _0100_RETURN:   RTS                             * return to caller
 *           - ADDQ
 *-------------------------------------------------------------------------------
 CODE_0101:
-                JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                * write "ADDQ" to buffer
+                LEA         string_addq, A1
+                JSR         WRITE_TO_BUFFER
+
+                * decode instruction size
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_SIZE_78
+                JSR         PAD_BUFFER
+
+                CMP.L       #ERROR, D0
+                BEQ         _0101_INVALID
+
+                * decode immediate value: 1 - 8
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$F00, D0
+                LSR.L       #SHIFT_8, D0
+                MOVE.L      D0, D1
+                ANDI.L      #1, D1
+                CMP.L       #0, D1              * validate that this is ADDQ
+                BNE         _0100_INVALID
+
+                LSR.L       #1, D0
+                CMP.W       #0, D0              * if value is 0, immediate data is 8
+                BEQ         ADDQ_SET_8
+                BRA         ADDQ_NEXT
+
+ADDQ_SET_8:     MOVE.L      #8, D0
+
+                * write immediate data to buffer
+ADDQ_NEXT:      MOVE.B      #'#', (A0)+
+                MOVE.B      #'$', (A0)+
+                JSR         WORD_TO_HEX_STRING
+                LEA         word_string_buf, A1
+                JSR         WRITE_TO_BUFFER
+                JSR         WRITE_COMMA
+
+                * decode destination EA
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_EA
+
+                * check for error
+                CMP.L       #ERROR, D0
+                BEQ         _0101_INVALID
+
+                * can't have immediate data as destination
+                CMP.L       #IMM_EA, D0
+                BEQ         _0101_INVALID
+                BRA         _0101_RETURN        * done decoding ADDQ
+
+_0101_INVALID:  JSR         INVALID_OPCODE
+_0101_RETURN:   RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
