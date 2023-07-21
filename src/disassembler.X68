@@ -836,9 +836,9 @@ MATCHED_ADDA:
                 BEQ         _1101_INVALID
 
                 JSR         LOAD_CURRENT_WORD
-                ANDI.L      #$40, D0
                 JSR         WRITE_COMMA
                 JSR         LOAD_DST_EA
+                ANDI.L      #$0F, D0
                 JSR         DECODE_EA
                 BRA         _1101_RETURN
 
