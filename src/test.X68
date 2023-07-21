@@ -1,0 +1,481 @@
+*-------------------------------------------------------------------------------
+* Title      : 68K disassembler test
+* Written by : Michael
+* Date       : 07/21/2023
+* Description: Test file
+*-------------------------------------------------------------------------------
+WORD        EQU         $FFFFFFFA
+LONG        EQU         $0000FFFA
+
+START:      ORG         $00004000
+
+*--------------------------------- GROUP 1 NOP ---------------------------------
+            NOP
+            NOP
+
+*--------------------------------- GROUP 2 MOVE --------------------------------
+********************************************************************************
+* MOVE: ALL PASSED                                                             *
+********************************************************************************
+            *-------------------------------------------------------------------
+            *------------------------------ MOVE.B -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            MOVE.B      D0, D1              * Dn
+            MOVE.B      D2, (A0)
+            MOVE.B      D3, (A1)+
+            MOVE.B      D4, -(A2)
+            MOVE.B      D5, WORD
+            MOVE.B      D6, LONG
+
+            NOP
+            MOVE.B      (A0), D0            * (An)
+            MOVE.B      (A1), (A1)
+            MOVE.B      (A2), (A1)+
+            MOVE.B      (A3), -(A2)
+            MOVE.B      (A4), WORD
+            MOVE.B      (A5), LONG
+
+            NOP
+            MOVE.B      (A0)+, D0           * (An)+
+            MOVE.B      (A1)+, (A0)
+            MOVE.B      (A2)+, (A1)+
+            MOVE.B      (A3)+, -(A2)
+            MOVE.B      (A4)+, WORD
+            MOVE.B      (A5)+, LONG
+
+            NOP
+            MOVE.B      -(A0), D0           * -(An)
+            MOVE.B      -(A1), (A0)
+            MOVE.B      -(A2), (A1)+
+            MOVE.B      -(A3), -(A2)
+            MOVE.B      -(A4), WORD
+            MOVE.B      -(A5), LONG
+
+            NOP
+            MOVE.B      WORD, D0           * (xxx).W
+            MOVE.B      WORD, (A0)
+            MOVE.B      WORD, (A1)+
+            MOVE.B      WORD, -(A2)
+            MOVE.B      WORD, $1234
+            MOVE.B      WORD, $1234568
+
+            NOP
+            MOVE.B      LONG, D0       * (xxx).L
+            MOVE.B      LONG, (A0)
+            MOVE.B      LONG, (A1)+
+            MOVE.B      LONG, -(A2)
+            MOVE.B      LONG, $1234
+            MOVE.B      LONG, $12345678
+
+            NOP
+            MOVE.B      #$00, D0            * #<data>
+            MOVE.B      #$00, (A0)
+            MOVE.B      #$AA, (A1)+
+            MOVE.B      #$AA, -(A2)
+            MOVE.B      #$FF, $1234
+            MOVE.B      #$11, $12345678
+
+            *-------------------------------------------------------------------
+            *------------------------------ MOVE.W -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            MOVE.W      D0, D1              * Dn
+            MOVE.W      D2, (A0)
+            MOVE.W      D3, (A1)+
+            MOVE.W      D4, -(A2)
+            MOVE.W      D5, WORD
+            MOVE.W      D6, LONG
+
+            NOP
+            MOVE.W      (A0), D0            * (An)
+            MOVE.W      (A1), (A1)
+            MOVE.W      (A2), (A1)+
+            MOVE.W      (A3), -(A2)
+            MOVE.W      (A4), WORD
+            MOVE.W      (A5), LONG
+
+            NOP
+            MOVE.W      (A0)+, D0           * (An)+
+            MOVE.W      (A1)+, (A0)
+            MOVE.W      (A2)+, (A1)+
+            MOVE.W      (A3)+, -(A2)
+            MOVE.W      (A4)+, WORD
+            MOVE.W      (A5)+, LONG
+
+            NOP
+            MOVE.W      -(A0), D0           * -(An)
+            MOVE.W      -(A1), (A0)
+            MOVE.W      -(A2), (A1)+
+            MOVE.W      -(A3), -(A2)
+            MOVE.W      -(A4), WORD
+            MOVE.W      -(A5), LONG
+
+            NOP
+            MOVE.W      WORD, D0           * (xxx).W
+            MOVE.W      WORD, (A0)
+            MOVE.W      WORD, (A1)+
+            MOVE.W      WORD, -(A2)
+            MOVE.W      WORD, $1234
+            MOVE.W      WORD, $1234568
+
+            NOP
+            MOVE.W      LONG, D0       * (xxx).L
+            MOVE.W      LONG, (A0)
+            MOVE.W      LONG, (A1)+
+            MOVE.W      LONG, -(A2)
+            MOVE.W      LONG, $1234
+            MOVE.W      LONG, $12345678
+
+            NOP
+            MOVE.W      #$00, D0            * #<data>
+            MOVE.W      #$00, (A0)
+            MOVE.W      #$AA, (A1)+
+            MOVE.W      #$AA, -(A2)
+            MOVE.W      #$FF, $1234
+            MOVE.W      #$11, $12345678
+
+            *-------------------------------------------------------------------
+            *------------------------------ MOVE.L -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            MOVE.L      D0, D1              * Dn
+            MOVE.L      D2, (A0)
+            MOVE.L      D3, (A1)+
+            MOVE.L      D4, -(A2)
+            MOVE.L      D5, WORD
+            MOVE.L      D6, LONG
+
+            NOP
+            MOVE.L      (A0), D0            * (An)
+            MOVE.L      (A1), (A1)
+            MOVE.L      (A2), (A1)+
+            MOVE.L      (A3), -(A2)
+            MOVE.L      (A4), WORD
+            MOVE.L      (A5), LONG
+
+            NOP
+            MOVE.L      (A0)+, D0           * (An)+
+            MOVE.L      (A1)+, (A0)
+            MOVE.L      (A2)+, (A1)+
+            MOVE.L      (A3)+, -(A2)
+            MOVE.L      (A4)+, WORD
+            MOVE.L      (A5)+, LONG
+
+            NOP
+            MOVE.L      -(A0), D0           * -(An)
+            MOVE.L      -(A1), (A0)
+            MOVE.L      -(A2), (A1)+
+            MOVE.L      -(A3), -(A2)
+            MOVE.L      -(A4), WORD
+            MOVE.L      -(A5), LONG
+
+            NOP
+            MOVE.L      WORD, D0           * (xxx).W
+            MOVE.L      WORD, (A0)
+            MOVE.L      WORD, (A1)+
+            MOVE.L      WORD, -(A2)
+            MOVE.L      WORD, $1234
+            MOVE.L      WORD, $1234568
+
+            NOP
+            MOVE.L      LONG, D0       * (xxx).L
+            MOVE.L      LONG, (A0)
+            MOVE.L      LONG, (A1)+
+            MOVE.L      LONG, -(A2)
+            MOVE.L      LONG, $1234
+            MOVE.L      LONG, $12345678
+
+            NOP
+            MOVE.L      #$FF00, D0            * #<data>
+            MOVE.L      #$0000, (A0)
+            MOVE.L      #$AA00, (A1)+
+            MOVE.L      #$AA00, -(A2)
+            MOVE.L      #$FF00, $1234
+            MOVE.L      #$1100, $12345678
+
+
+            *-------------------------------------------------------------------
+            *------------------------------ MOVEQ.L ----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            MOVEQ.L     #$00, D0
+            MOVEQ.L     #$11, D1
+            MOVEQ.L     #$AA, D2
+            MOVEQ.L     #$BB, D3
+            MOVEQ.L     #$FF, D4
+
+
+            *-------------------------------------------------------------------
+            *----------------------------- MOVEA.W -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            MOVEA.W     D0, A0
+            MOVEA.W     A1, A1
+            MOVEA.W     (A1), A2
+            MOVEA.W     (A1)+, A3
+            MOVEA.W     -(A1), A4
+            MOVEA.W     $0000FFFF, A5
+            MOVEA.W     $FFFFFFFF, A6
+            MOVEA.W     #$0000FFFF, A7
+            MOVEA.W     #$FFFFFFFF, SP
+
+
+            *-------------------------------------------------------------------
+            *----------------------------- MOVEA.L -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            MOVEA.L     D0, A0
+            MOVEA.L     A1, A1
+            MOVEA.L     (A1), A2
+            MOVEA.L     (A1)+, A3
+            MOVEA.L     -(A1), A4
+            MOVEA.L     $0000FFFF, A5
+            MOVEA.L     $FFFFFFFF, A6
+            MOVEA.L     #$0000FFFF, A7
+            MOVEA.L     #$FFFFFFFF, SP
+
+
+*--------------------------------- GROUP 3 ADD ---------------------------------
+********************************************************************************
+* ADD: ALL PASSED                                                              *
+********************************************************************************
+            *-------------------------------------------------------------------
+            *------------------------------- ADD.B -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            ADD.B       D1, D0
+            ADD.B       (A0), D1
+            ADD.B       (A1)+, D2
+            ADD.B       -(A2), D3
+            ADD.B       WORD, D4
+            ADD.B       LONG, D5
+
+            NOP
+            ADD.B       D0, (A0)
+            ADD.B       D1, (A1)+
+            ADD.B       D2, -(A2)
+            ADD.B       D3, WORD
+            ADD.B       D4, LONG
+
+            NOP
+            ADD.B       (SP), D1
+            ADD.B       (SP)+, D1
+            ADD.B       -(SP), D1
+            ADD.B       $0030, D7
+            ADD.B       $FFFF8000, D7
+
+
+            *-------------------------------------------------------------------
+            *------------------------------- ADD.W -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            ADD.W       D1, D0
+            ADD.W       A0, D1
+            ADD.W       (A1), D2
+            ADD.W       (A2)+, D3
+            ADD.W       -(A3), D4
+            ADD.W       WORD, D5
+            ADD.W       LONG, D6
+
+            NOP
+            ADD.W       D0, (A0)
+            ADD.W       D1, (A1)+
+            ADD.W       D2, -(A2)
+            ADD.W       D3, WORD
+            ADD.W       D4, LONG
+
+            NOP
+            ADD.W       A0, D1
+            ADD.W       (SP), D1
+            ADD.W       (SP)+, D1
+            ADD.W       -(SP), D1
+            ADD.W       $00008000, D7
+            ADD.W       $0030, D7
+            ADD.W       $FFFF8000, D7
+
+
+            *-------------------------------------------------------------------
+            *------------------------------- ADD.L -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            ADD.L       D1, D0
+            ADD.L       A0, D1
+            ADD.L       (A1), D2
+            ADD.L       (A2)+, D3
+            ADD.L       -(A3), D4
+            ADD.L       WORD, D5
+            ADD.L       LONG, D6
+
+            NOP
+            ADD.L       D0, (A0)
+            ADD.L       D1, (A1)+
+            ADD.L       D2, -(A2)
+            ADD.L       D3, WORD
+            ADD.L       D4, LONG
+
+            NOP
+            ADD.L       A0, D1
+            ADD.L       (SP), D1
+            ADD.L       (SP)+, D1
+            ADD.L       -(SP), D1
+            ADD.L       $00008000, D7
+            ADD.L       $0030, D7
+            ADD.L       $FFFF8000, D7
+
+
+            *-------------------------------------------------------------------
+            *------------------------------- ADDA ----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            ADDA.W      D0, A0
+            ADDA.W      A0, A1
+            ADDA.W      (A1), A2
+            ADDA.W      -(SP), A3
+            ADDA.W      (SP)+, A4
+            ADDA.W      WORD, A5
+            ADDA.W      LONG, A6
+            ADDA.W      #$1234, A7
+
+            NOP
+            ADDA.L      D0, A0
+            ADDA.L      A0, A1
+            ADDA.L      (A1), A2
+            ADDA.L      -(SP), A3
+            ADDA.L      (SP)+, A4
+            ADDA.L      WORD, A5
+            ADDA.L      LONG, A6
+            ADDA.L      #$1234, A7
+            ADDA.L      #LONG, SP
+
+
+            *-------------------------------------------------------------------
+            *------------------------------- ADDQ ----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            ADDQ.B      #1, D0
+            * ADDQ.B      #2, A0            * this gives "ERROR: Invalid size code" in EAsy68K
+            ADDQ.B      #3, (A1)
+            ADDQ.B      #4, (A2)+
+            ADDQ.B      #5, -(A3)
+            ADDQ.B      #6, WORD
+            ADDQ.B      #7, LONG
+            ADDQ.B      #8, D7
+
+            NOP
+            ADDQ.W      #1, D0
+            ADDQ.W      #2, A0
+            ADDQ.W      #3, (A1)
+            ADDQ.W      #4, (A2)+
+            ADDQ.W      #5, -(A3)
+            ADDQ.W      #6, WORD
+            ADDQ.W      #7, LONG
+            ADDQ.W      #8, D7
+
+            NOP
+            ADDQ.L      #1, D0
+            ADDQ.L      #2, A0
+            ADDQ.L      #3, (A1)
+            ADDQ.L      #4, (A2)+
+            ADDQ.L      #5, -(A3)
+            ADDQ.L      #6, WORD
+            ADDQ.L      #7, LONG
+            ADDQ.L      #8, D7
+
+
+*--------------------------------- GROUP 4 SUB ---------------------------------
+********************************************************************************
+* SUB: ALL PASSED                                                              *
+********************************************************************************
+            *-------------------------------------------------------------------
+            *------------------------------- SUB.B -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            SUB.B       D1, D0
+            SUB.B       (A0), D1
+            SUB.B       (A1)+, D2
+            SUB.B       -(A2), D3
+            SUB.B       WORD, D4
+            SUB.B       LONG, D5
+
+            NOP
+            SUB.B       D0, (A0)
+            SUB.B       D1, (A1)+
+            SUB.B       D2, -(A2)
+            SUB.B       D3, WORD
+            SUB.B       D4, LONG
+
+
+            *-------------------------------------------------------------------
+            *------------------------------- SUB.W -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            SUB.W       D1, D0
+            SUB.W       A0, D1
+            SUB.W       (A1), D2
+            SUB.W       (A2)+, D3
+            SUB.W       -(A3), D4
+            SUB.W       WORD, D5
+            SUB.W       LONG, D6
+
+            NOP
+            SUB.W       D0, (A0)
+            SUB.W       D1, (A1)+
+            SUB.W       D2, -(A2)
+            SUB.W       D3, WORD
+            SUB.W       D4, LONG
+
+
+            *-------------------------------------------------------------------
+            *------------------------------- SUB.L -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            SUB.L       D1, D0
+            SUB.L       A0, D1
+            SUB.L       (A1), D2
+            SUB.L       (A2)+, D3
+            SUB.L       -(A3), D4
+            SUB.L       WORD, D5
+            SUB.L       LONG, D6
+
+            NOP
+            SUB.L       D0, (A0)
+            SUB.L       D1, (A1)+
+            SUB.L       D2, -(A2)
+            SUB.L       D3, WORD
+            SUB.L       D4, LONG
+
+
+*--------------------------------- GROUP 5 LEA ---------------------------------
+********************************************************************************
+* LEA: ALL PASSED                                                              *
+********************************************************************************
+            *-------------------------------------------------------------------
+            *------------------------------- LEA.L -----------------------------
+            *-------------------------------------------------------------------
+            NOP
+            NOP
+            LEA.L       (A0), A0
+            LEA.L       WORD, A3
+            LEA.L       LONG, A4
+            LEA.L       lea_test, A5
+
+lea_test    DC.W        'lea test'
+
+
+
+            END         START
