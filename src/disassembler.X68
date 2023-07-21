@@ -560,7 +560,7 @@ CODE_0101:
                 MOVE.L      D0, D1
                 ANDI.L      #1, D1
                 CMP.L       #0, D1              * validate that this is ADDQ
-                BNE         _0100_INVALID
+                BNE         _0101_INVALID
 
                 LSR.L       #1, D0
                 CMP.W       #0, D0              * if value is 0, immediate data is 8
@@ -619,8 +619,42 @@ CODE_0110:
 *           - MOVEQ.L
 *-------------------------------------------------------------------------------
 CODE_0111:
-                JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                * write "MOVEQ.L" to buffer
+                LEA         string_moveq, A1
+                JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
+
+                * write immediate data to buffer
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$00FF, D0          * isolate immediate data
+
+                MOVE.B      #'#', (A0)+
+                MOVE.B      #'$', (A0)+
+                JSR         WORD_TO_HEX_STRING
+                LEA         word_string_buf, A1
+                JSR         WRITE_TO_BUFFER
+                JSR         WRITE_COMMA
+
+                * decode Dn register
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$0F00, D0
+                LSR.L       #SHIFT_8, D0
+
+                MOVE.L      D0, D1
+                ANDI.L      #1, D1
+                CMP.L       #0, D1              * validate that this is MOVEQ
+                BNE         _0111_INVALID
+
+                LSR.L       #1, D0              * shift right one more time to isolate register bits
+
+                * write register number to buffer
+                ADD.B       #'0', D0
+                MOVE.B      #'D', (A0)+
+                MOVE.B      D0, (A0)+
+                BRA         _0111_RETURN
+
+_0111_INVALID:  JSR         INVALID_OPCODE
+_0111_RETURN:   RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
