@@ -481,7 +481,7 @@ lea_test    DC.W        $0
 
 *----------------------------- GROUP 6 AND/OR/NOT ------------------------------
 ********************************************************************************
-*  AND/OR: ALL PASSED      (FIX AN EA with NOT)                                *
+*  AND/OR/NOT: ALL PASSED                                                      *
 ********************************************************************************
             *-------------------------------------------------------------------
             *-------------------------------- AND ------------------------------
@@ -599,7 +599,7 @@ lea_test    DC.W        $0
             NOP
             NOP
             NOT.B       D3
-            NOT.B       (A0)        -- DOES NOT PASS
+            NOT.B       (A0)
             NOT.B       (A1)+
             NOT.B       -(A2)
             NOT.B       WORD
@@ -608,7 +608,7 @@ lea_test    DC.W        $0
             NOP
             NOP
             NOT.W       D3
-            NOT.W       (A0)         -- DOES NOT PASS
+            NOT.W       (A0)
             NOT.W       (A1)+
             NOT.W       -(A2)
             NOT.W       WORD
@@ -617,7 +617,7 @@ lea_test    DC.W        $0
             NOP
             NOP
             NOT.L       D3
-            NOT.L       (A0)         -- DOES NOT PASS
+            NOT.L       (A0)
             NOT.L       (A1)+
             NOT.L       -(A2)
             NOT.L       WORD

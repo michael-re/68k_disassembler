@@ -452,7 +452,7 @@ MATCHED_NOT:
                 CMP.L       #ERROR, D0          * invalid addressing mode
                 BEQ         _0100_INVALID
 
-                CMP.L       #ANI_EA, D0         * does not support (An)
+                CMP.L       #AN_EA, D0         * does not support An
                 BEQ         _0100_INVALID
 
                 CMP.L       #IMM_EA, D0         * does not support #imm
