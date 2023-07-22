@@ -466,34 +466,15 @@ MATCHED_JSR:
                 JSR         WRITE_TO_BUFFER
                 JSR         PAD_BUFFER
 
-                * JSR supports the following EA - (An), (xxx).W, (xxx).L
-                *
-                * According to the manual, JSR pushes the long-word address of
-                * the instruction immediately following the JSR instruction onto
-                * the system stack.
-                *
-                * This little quirk means that before trying to decode the EA,
-                * if its dealing with absolute addressing, we need to update the
-                * EA mode to specify absolute long word regardless if the mode
-                * is absolute word or long.
-
-                JSR         LOAD_CURRENT_WORD
-                MOVE.L      D0, D1              * create temp copy in D1 to check EA
-
-                MOVE.L      #$3F, D2
-                AND.L       D2, D1              * isolate 6 EA mode bits
-
-                CMPI.B      #$38, D1            * check if EA is (xxx).W
-                BEQ         JSR_SHORT
-
-                BRA         JSR_CONTINUE        * not dealing with absolute addressing
-
-                * set EA to absolute long
-JSR_SHORT:      ORI.B       #$01, D0
-
                 * get addressing mode for JSR
-JSR_CONTINUE:   JSR         DECODE_EA
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_EA
+
+                * JSR supports the following EA - (An), (xxx).W, (xxx).L
                 CMP.L       #ANI_EA, D0         * check if decoded (An)
+                BEQ         _0100_RETURN
+
+                CMP.L       #ABSW_EA, D0        * check if decoded (xxx).W
                 BEQ         _0100_RETURN
 
                 CMP.L       #ABSL_EA, D0        * check if decoded (xxx).L
