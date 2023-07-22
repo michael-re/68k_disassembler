@@ -662,8 +662,7 @@ DIS_16_BIT:     ADD.L       #2, inst_offset     * update instruction offset
                 BRA         POS_16
 
 NEG_16:         NEG.W       D1                  * negative displacement
-                SUB         D0, D1              * branch location = (PC + 2) - displacement
-                MOVE.L      D1, D0
+                SUB.L       D1, D0              * branch location = (PC + 2) - displacement
                 BRA         WRITE_DIS
 
 POS_16:         ADD         D1, D0              * branch location = (PC + 2) + displacement
@@ -682,8 +681,7 @@ DIS_32_BIT:     ADD.L       #4, inst_offset     * update instruction offset
                 BRA         POS_32
 
 NEG_32:         NEG.L       D1                  * negative displacement
-                SUB         D0, D1              * branch location = (PC + 2) - displacement
-                MOVE.L      D1, D0
+                SUB.L       D1, D0              * branch location = (PC + 2) - displacement
                 BRA         WRITE_DIS
 
 POS_32:         ADD         D1, D0              * branch location = (PC + 2) + displacement
