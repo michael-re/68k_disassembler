@@ -1487,7 +1487,7 @@ LOAD_DST_EA:
 
 *-------------------------------------------------------------------------------
 * Subroutine:
-*       READ_STRING
+*       STRING_TO_NUMBER
 *
 * Description:
 *       Convert a null-terminated string in A1 that represents a hex number into
@@ -1672,8 +1672,8 @@ GET_HEX_INPUT:
                 JSR         STRING_TO_NUMBER    * convert string input to an integer
 
                 LEA         error_msg_h, A1
-                CMP         #0, D1              * check if conversion was successful
-                BNE         INVALID_INPUT       * input was not a valid hex string
+                CMP         #ERROR, D1          * check if conversion was successful
+                BEQ         INVALID_INPUT       * input was not a valid hex string
 
                 LEA         error_msg_l, A1
                 CMP.L       #MIN_ADDR, D0       * check starting address range
