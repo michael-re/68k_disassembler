@@ -694,7 +694,15 @@ JSR_START:  NOP
             JSR     JSR_START
             RTS
             JSR     JSR_END
-JSR_END:    RTS
 
+            NOP
+            NOP
+            JSR     (A0)
+            JSR     (A1)
+            JSR     (A2)
+            JSR     (A3)
+            JSR     WORD
+            JSR     LONG
+JSR_END:    RTS
 
             END         START
