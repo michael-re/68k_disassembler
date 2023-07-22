@@ -587,7 +587,132 @@ _0101_RETURN:   RTS                             * return to caller
 *           - BRA
 *-------------------------------------------------------------------------------
 CODE_0110:
-                JSR         INVALID_OPCODE
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$0F00, D0          * isolate condition bits
+                LSR.L       #SHIFT_8, D0        * move them to the first 4 bits
+
+                * determine if BGT, BLE, or BEQ, or BRA
+                CMP         #$0, D0             * BRA
+                BEQ         MATCHED_BRA
+
+                CMP         #$E, D0             * BGT
+                BEQ         MATCHED_BGT
+
+                CMP         #$F, D0             * BLE
+                BEQ         MATCHED_BLE
+
+                CMP         #$7, D0             * BEQ
+                BEQ         MATCHED_BEQ
+
+                BRA         _0110_INVALID
+
+MATCHED_BRA:    * write "BRA" to buffer
+                LEA         string_bra, A1
+                JSR         WRITE_TO_BUFFER
+                BRA         BCC_NEXT
+
+MATCHED_BGT:    * write "BGT" to buffer
+                LEA         string_bgt, A1
+                JSR         WRITE_TO_BUFFER
+                BRA         BCC_NEXT
+
+MATCHED_BLE:    * write "BLE" to buffer
+                LEA         string_ble, A1
+                JSR         WRITE_TO_BUFFER
+                BRA         BCC_NEXT
+
+MATCHED_BEQ:    * write "BEQ" to buffer
+                LEA         string_beq, A1
+                JSR         WRITE_TO_BUFFER
+
+BCC_NEXT:       * determine displacement
+                JSR         PAD_BUFFER
+                JSR         DECODE_DISPLACEMENT
+                BRA         _0110_RETURN
+
+_0110_INVALID:  JSR         INVALID_OPCODE
+_0110_RETURN:   RTS                             * return to caller
+
+
+
+DECODE_DISPLACEMENT:
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                ANDI.L      #$00FF, D0          * isolate displacement bits
+
+                * check if displacement is 8, 16, or 32 bits
+                CMP         #$00, D0            * 16 bit displacement
+                BEQ         DIS_16_BIT
+
+                CMP         #$FF, D0            * 32 bit displacement
+                BEQ         DIS_16_BIT
+
+                BRA         DIS_8_BIT           * decode 8 bit displacement
+
+DIS_16_BIT:     ADD.L       #2, inst_offset     * update instruction offset
+                MOVE.L      start_addr, D0      * PC
+                ADD.L       #2, D0              * PC + 2
+
+                MOVE.L      #0, D1              * clear D0 to hold displacement
+                MOVE.L      D0, A1              * move address instruction into
+                MOVE.W      (A1), D1            * load displacement in D1
+
+                * apply displacement to PC to get location of label
+                CMP.L       #$8000, D1          * check if displacement is negative
+                BGE         NEG_16
+                BRA         POS_16
+
+NEG_16:         NEG.W       D1                  * negative displacement
+                SUB         D0, D1              * branch location = (PC + 2) - displacement
+                MOVE.L      D1, D0
+                BRA         WRITE_DIS
+
+POS_16:         ADD         D1, D0              * branch location = (PC + 2) + displacement
+                BRA         WRITE_DIS
+
+DIS_32_BIT:     ADD.L       #4, inst_offset     * update instruction offset
+                MOVE.L      start_addr, D0      * PC
+                ADD.L       #2, D0              * PC + 2
+
+                MOVE.L      D0, A1              * move address instruction into
+                MOVE.L      (A1), D1            * load displacement in D1
+
+                * apply displacement to PC to get location of label
+                CMP.L       #$80000000, D1      * check if displacement is negative
+                BGE         NEG_32
+                BRA         POS_32
+
+NEG_32:         NEG.L       D1                  * negative displacement
+                SUB         D0, D1              * branch location = (PC + 2) - displacement
+                MOVE.L      D1, D0
+                BRA         WRITE_DIS
+
+POS_32:         ADD         D1, D0              * branch location = (PC + 2) + displacement
+                BRA         WRITE_DIS
+
+DIS_8_BIT:      JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$00FF, D0          * isolate displacement bits
+
+                * apply displacement to PC to get location of label
+                CMP.B       #$80, D1
+                BGE         NEG_8
+                BRA         POS_8
+
+NEG_8:          NEG.B       D0                  * negative displacement
+                MOVE.L      start_addr, D1      * PC
+                ADD.L       #2, D1              * PC + 2
+                SUB         D0, D1              * branch location = (PC + 2) - displacement
+                MOVE.L      D1, D0
+                BRA         WRITE_DIS
+
+POS_8:          MOVE.L      start_addr, D0      * PC
+                ADD.L       #2, D0              * PC + 2
+                ADD         D1, D0              * branch location = (PC + 2) + displacement
+                BRA         WRITE_DIS
+
+WRITE_DIS:      JSR         LONG_TO_HEX_STRING  * longword of branch location in D0
+                LEA         long_string_buf, A1 * prepare to write branch location
+                MOVE.B      #'$', (A0)+
+                JSR         WRITE_TO_BUFFER     * write branch location to buffer
                 RTS                             * return to caller
 
 
