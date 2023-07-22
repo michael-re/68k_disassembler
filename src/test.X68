@@ -9,6 +9,16 @@ LONG        EQU         $0000FFFA
 
 START:      ORG         $00004000
 
+            * first test for group 9 - testing positive displacement
+            NOP
+            NOP
+            JSR     BCC_END               * use JSR to validate branch label value
+            BGT     BCC_END
+            BLE     BCC_END
+            BEQ     BCC_END
+            BRA     BCC_END
+            JSR     BCC_END               * use JSR to validate branch label value
+
 *--------------------------------- GROUP 1 NOP ---------------------------------
             NOP
             NOP
@@ -622,5 +632,69 @@ lea_test    DC.W        $0
             NOT.L       -(A2)
             NOT.L       WORD
             NOT.L       LONG
+
+
+*------------------------------ GROUP 9 Bcc/BRA --------------------------------
+********************************************************************************
+*  Bcc/BRA:                                                                    *
+********************************************************************************
+            *-------------------------------------------------------------------
+            *----------------------------- Bcc/BRA -----------------------------
+            *-------------------------------------------------------------------
+BCC_START:  NOP
+            NOP
+            JSR     START               * use JSR to validate branch label value
+            BGT     START
+            BLE     START
+            BEQ     START
+            BRA     START
+            JSR     START               * use JSR to validate branch label value
+
+            NOP
+            JSR     BCC_START           * use JSR to validate branch label value
+            BGT     BCC_START
+            BLE     BCC_START
+            BEQ     BCC_START
+            BRA     BCC_START
+            JSR     BCC_START           * use JSR to validate branch label value
+
+            NOP
+            JSR     BCC_END             * use JSR to validate branch label value
+            BGT     BCC_END
+            BLE     BCC_END
+            BEQ     BCC_END
+            BRA     BCC_END
+            JSR     BCC_END             * use JSR to validate branch label value
+
+            NOP
+            JSR     JSR_END             * use JSR to validate branch label value
+            BGT     JSR_END
+            BLE     JSR_END
+            BEQ     JSR_END
+            BRA     JSR_END
+BCC_END:    JSR     JSR_END             * use JSR to validate branch label value
+
+
+
+*------------------------------ GROUP 10 JSR/RTS -------------------------------
+********************************************************************************
+*  JSR/RTS:                                                                    *
+********************************************************************************
+            *-------------------------------------------------------------------
+            *----------------------------- JSR/RTS -----------------------------
+            *-------------------------------------------------------------------
+JSR_START:  NOP
+            NOP
+            JSR     START
+            RTS
+            JSR     BCC_START
+            RTS
+            JSR     BCC_END
+            RTS
+            JSR     JSR_START
+            RTS
+            JSR     JSR_END
+JSR_END:    RTS
+
 
             END         START
