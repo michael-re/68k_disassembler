@@ -705,4 +705,67 @@ JSR_START:  NOP
             JSR     LONG
 JSR_END:    RTS
 
+
+
+*------------------------------ GROUP 11 BGT/BLE/BEQ ----------------------------
+********************************************************************************
+*  BGT/BLE/BEQ:                                                                *
+********************************************************************************
+            *-------------------------------------------------------------------
+            *--------------------------- BGT/BLE/BEQ ---------------------------
+            *-------------------------------------------------------------------
+            BGT      START
+            BGT      BCC_START
+            BGT      BCC_END
+            BGT      JSR_START
+            BGT      JSR_END
+
+            BGE      START
+            BGE      BCC_START
+            BGE      BCC_END
+            BGE      JSR_START
+            BGE      JSR_END
+
+            BLE      START
+            BLE      BCC_START
+            BLE      BCC_END
+            BLE      JSR_START
+            BLE      JSR_END
+
+            BLT      START
+            BLT      BCC_START
+            BLT      BCC_END
+            BLT      JSR_START
+            BLT      JSR_END
+
+            BEQ      START
+            BEQ      BCC_START
+            BEQ      BCC_END
+            BEQ      JSR_START
+            BEQ      JSR_END
+
+            BNE      START
+            BNE      BCC_START
+            BNE      BCC_END
+            BNE      JSR_START
+            BNE      JSR_END
+
+            BHI      START
+            BHI      BCC_START
+            BHI      BCC_END
+            BHI      JSR_START
+            BHI      JSR_END
+
+            BLS      START
+            BLS      BCC_START
+            BLS      BCC_END
+            BLS      JSR_START
+            BLS      JSR_END
+
+            JMP      START
+            JMP      BCC_START
+            JMP      BCC_END
+            JMP      JSR_START
+            JMP      JSR_END
+
             END         START
