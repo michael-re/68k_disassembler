@@ -156,8 +156,6 @@ DISP_LOOP:      MOVE.L      start_addr, D0      * reload start_addr into D0
                 BGE         DISP_END            * exit loop if start_addr >= end_addr
 
                 JSR         DECODE_INSTRUCTION  * call DECODE_INSTRUCTION
-                LEA         output_buffer, A1   * load output buffer with decoded instruction
-                JSR         PRINT_STRING_LN     * print buffer
                 DBF         D2, DISP_LOOP       * decrement counter and loop if not zero
 
 DISP_END:       MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
@@ -193,6 +191,9 @@ DECODE_INSTRUCTION:
                 MULU        #6, D0              * form offset
                 JSR         0(A1,D0)            * jump indirect with index
                 JSR         NEXT_INSTRUCTION    * go to the next instruction
+
+                LEA         output_buffer, A1   * load output buffer with decoded instruction
+                JSR         PRINT_STRING_LN     * print buffer
 
                 MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
                 RTS                             * return to the caller
