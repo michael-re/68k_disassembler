@@ -640,14 +640,11 @@ DECODE_DISPLACEMENT:
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 ANDI.L      #$00FF, D0          * isolate displacement bits
 
-                * check if displacement is 8, 16, or 32 bits
-                CMP         #$00, D0            * 16 bit displacement
+                * check if displacement is 8 or 16 bits
+                CMP         #$00, D0            * 16-bit displacement
                 BEQ         DIS_16_BIT
 
-                CMP         #$FF, D0            * 32 bit displacement
-                BEQ         DIS_16_BIT
-
-                BRA         DIS_8_BIT           * decode 8 bit displacement
+                BRA         DIS_8_BIT           * 8-bit displacement
 
 DIS_16_BIT:     ADD.L       #2, inst_offset     * update instruction offset
                 MOVE.L      start_addr, D0      * PC
@@ -667,25 +664,6 @@ NEG_16:         NEG.W       D1                  * negative displacement
                 BRA         WRITE_DIS
 
 POS_16:         ADD         D1, D0              * branch location = (PC + 2) + displacement
-                BRA         WRITE_DIS
-
-DIS_32_BIT:     ADD.L       #4, inst_offset     * update instruction offset
-                MOVE.L      start_addr, D0      * PC
-                ADD.L       #2, D0              * PC + 2
-
-                MOVE.L      D0, A1              * move address instruction into
-                MOVE.L      (A1), D1            * load displacement in D1
-
-                * apply displacement to PC to get location of label
-                CMP.L       #$80000000, D1      * check if displacement is negative
-                BGE         NEG_32
-                BRA         POS_32
-
-NEG_32:         NEG.L       D1                  * negative displacement
-                SUB.L       D1, D0              * branch location = (PC + 2) - displacement
-                BRA         WRITE_DIS
-
-POS_32:         ADD         D1, D0              * branch location = (PC + 2) + displacement
                 BRA         WRITE_DIS
 
 DIS_8_BIT:      JSR         LOAD_CURRENT_WORD
