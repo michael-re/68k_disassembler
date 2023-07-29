@@ -93,21 +93,11 @@ DISASSEMBLE:
                 JSR         CLEAR_REGISTERS     * clear registers
                 JSR         CLEAR_SCREEN        * clear screen
 
-                MOVE.L      start_addr, D0      * load start_addr into D0
-                MOVE.L      end_addr, D1        * load end_addr into D1
-
-                MOVEQ       #25, D2             * set loop counter to 25
-
-DIS_LOOP:       MOVE.L      start_addr, D0      * reload start_addr into D0
-                MOVE.L      end_addr, D1        * reload end_addr into D1
-                CMP.L       D1, D0              * compare start_addr and end_addr
-                BGE         DIS_END             * exit loop if start_addr >= end_addr
-
-                JSR         DISASSEMBLE_PAGE    * calls DECODE_INSTRUCTION to print page
+DIS_LOOP:       JSR         DISASSEMBLE_PAGE    * disassemble a page of instructions from memory
 
                 * check if all instructions have been decoded
-                MOVE.L      start_addr, D0      * reload start_addr into D0
-                MOVE.L      end_addr, D1        * reload end_addr into D1
+                MOVE.L      start_addr, D0      * load start_addr into D0
+                MOVE.L      end_addr, D1        * load end_addr into D1
                 CMP.L       D1, D0              * compare start_addr and end_addr
                 BGE         DIS_END             * exit loop if start_addr >= end_addr
 
@@ -119,6 +109,7 @@ DIS_LOOP:       MOVE.L      start_addr, D0      * reload start_addr into D0
                 CMP.B       #CR, D1             * check if user entered "enter"
                 BEQ         DIS_LOOP            * disassemble next page
 
+                * done disassembling instructions in memory
 DIS_END:        LEA         finish_msg, A1      * load address of finish message into A1
                 JSR         PRINT_NEWLINE       * print empty line
                 JSR         PRINT_STRING_LN     * print message with and an empty line
@@ -144,14 +135,10 @@ DISASSEMBLE_PAGE:
                 MOVEM.L     A0-A6/D0-D7, -(SP)  * save registers
                 JSR         CLEAR_REGISTERS     * clear registers
                 JSR         CLEAR_SCREEN        * clear screen
-
-                MOVE.L      start_addr, D0      * load start_addr into D0
-                MOVE.L      end_addr, D1        * load end_addr into D1
-
                 MOVEQ       #25, D2             * set loop counter to 25
 
-DISP_LOOP:      MOVE.L      start_addr, D0      * reload start_addr into D0
-                MOVE.L      end_addr, D1        * reload end_addr into D1
+DISP_LOOP:      MOVE.L      start_addr, D0      * load start_addr into D0
+                MOVE.L      end_addr, D1        * load end_addr into D1
                 CMP.L       D1, D0              * compare start_addr and end_addr
                 BGE         DISP_END            * exit loop if start_addr >= end_addr
 
