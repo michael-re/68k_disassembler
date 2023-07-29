@@ -38,9 +38,8 @@ WORD_VALUE      EQU         2
 LONG_VALUE      EQU         3
 
 * directions
-EA_TO_DN        EQU         $0000
 DN_TO_EA        EQU         $0100
-
+DIR_LEFT        EQU         $0100
 
 START:          ORG         CODE_SEC
                 LEA         welcome_msg, A1     * load welcome message
@@ -662,7 +661,7 @@ DIS_8_BIT:      LEA         string_byte, A1     * write instruction size
                 JSR         WRITE_TO_BUFFER
                 JSR         PAD_BUFFER
 
-                JSR         LOAD_CURRENT_WORD 
+                JSR         LOAD_CURRENT_WORD
                 MOVE.L      D0, D1              * move instruction into D1
                 ANDI.L      #$00FF, D1          * isolate displacement bits
 
@@ -926,7 +925,7 @@ _1101_RETURN:   RTS                             * return to caller
 
 *-------------------------------------------------------------------------------
 * Subroutine:
-*       CODE_1101
+*       CODE_1110
 *
 * Description:
 *       Decodes the following opcodes:
@@ -938,8 +937,107 @@ _1101_RETURN:   RTS                             * return to caller
 *           - ROR
 *-------------------------------------------------------------------------------
 CODE_1110:
-                JSR         INVALID_OPCODE
-                RTS                             * return to caller
+                MOVE.L      #0, D6
+
+                * check for memory shift/rotate
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$00C0, D0
+                CMP.L       #$00C0, D0
+                BEQ         MEMORY_SR
+
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$0018, D0          * isolate bits 4 and 5
+
+                CMP.L       #$0000, D0          * check if arithmetic shift
+                BEQ         MATCHED_ASD
+
+                CMP.L       #$0008, D0          * checkif logical shift
+                BEQ         MATCHED_LSD
+
+                CMP.L       #$0018, D0          * check if rotate
+                BEQ         MATCHED_ROD
+
+                BRA         _1110_INVALID
+
+MEMORY_SR:      MOVE.L      #ERROR, D6
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$0E00, D0          * isolate bits 10-12
+
+                CMP.L       #$0000, D0          * check if arithmetic shift
+                BEQ         MATCHED_ASD
+
+                CMP.L       #$0200, D0          * check if logical shift
+                BEQ         MATCHED_LSD
+
+                CMP.L       #$0600, D0          * check if rotate
+                BEQ         MATCHED_ROD
+
+                BRA         _1110_INVALID
+
+MATCHED_LSD:    * write "LS" to buffer
+                LEA         string_ls, A1
+                JSR         WRITE_TO_BUFFER
+                BRA         LAR_NEXT
+
+MATCHED_ASD:    * write "AS" to buffer
+                LEA         string_as, A1
+                JSR         WRITE_TO_BUFFER
+                BRA         LAR_NEXT
+
+MATCHED_ROD:    * write "RO" to buffer
+                LEA         string_ro, A1
+                JSR         WRITE_TO_BUFFER
+                BRA         LAR_NEXT
+
+LAR_NEXT:       * check shift/rotation direction
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #DIR_LEFT, D0
+                CMP.L       #DIR_LEFT, D0
+                BEQ         WRITE_LEFT
+                BRA         WRITE_RIGHT
+
+WRITE_LEFT:     MOVE.B      #'L', (A0)+
+                BRA         SR_SIZE
+
+WRITE_RIGHT:    MOVE.B      #'R', (A0)+
+                BRA         SR_SIZE
+
+SR_SIZE:        * decode size
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_SIZE_78
+                MOVE.L      D0, D7
+
+                * check if <ea> mode only
+                CMP.L       #ERROR, D6
+                BEQ         EA_SR_MEMORY
+
+                * TODO: check for other variations of opcode
+                BRA         _1110_INVALID
+
+EA_SR_MEMORY:      * opcode only takes a single operand
+                MOVE.L      #$40, D0            * set opcode size to word for single operand
+                JSR         DECODE_SIZE_78
+                JSR         PAD_BUFFER
+                JSR         LOAD_CURRENT_WORD
+                JSR         DECODE_EA
+
+                * <ea> must be (An), (An)+, -(An), (xxx).W, (xxx).L
+                CMP.L       #ERROR, D0
+                BEQ         _1110_INVALID
+
+                CMP.L       #DN_EA, D0
+                BEQ         _1110_INVALID
+
+                CMP.L       #AN_EA, D0
+                BEQ         _1110_INVALID
+
+                CMP.L       #IMM_EA, D0
+                BEQ         _1110_INVALID
+
+                BRA         _1110_RETURN
+
+_1110_INVALID:  JSR         INVALID_OPCODE
+_1110_RETURN:   RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
