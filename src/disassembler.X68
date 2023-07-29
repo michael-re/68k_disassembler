@@ -170,17 +170,18 @@ DECODE_INSTRUCTION:
                 JSR         PRINT_STRING        * print hex string
                 JSR         RESET_BUFFER_AND_OFFSET
 
-                LEA         OPCODE_TABLE, A1    * load address of opcode jump table
+                * decode instruction
                 JSR         LOAD_CURRENT_WORD   * load word data of current instruction to decode
+                LEA         OPCODE_TABLE, A1    * load address of opcode jump table
                 MOVE.B      #SHIFT_12, D1       * shift 12 bits to the right
                 LSR.W       D1, D0              * isolate the first 4 bits to decode opcode name
-
                 MULU        #6, D0              * form offset
                 JSR         0(A1,D0)            * jump indirect with index
-                JSR         NEXT_INSTRUCTION    * go to the next instruction
 
+                * print to screen and go to next intruction
                 LEA         output_buffer, A1   * load output buffer with decoded instruction
                 JSR         PRINT_STRING_LN     * print buffer
+                JSR         NEXT_INSTRUCTION    * go to the next instruction
 
                 MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
                 RTS                             * return to the caller
@@ -437,6 +438,7 @@ MATCHED_NOT:
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         DECODE_EA           * get addressing mode
 
+                * NOT supports all EA except An and #imm
                 CMP.L       #ERROR, D0          * invalid addressing mode
                 BEQ         _0100_INVALID
 
@@ -479,6 +481,7 @@ MATCHED_LEA:
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         DECODE_EA           * get source EA
 
+                * LEA supports the following EA - (An), (xxx).W, (xxx).L
                 CMP.L       #ANI_EA, D0         * check if decoded (An)
                 BEQ         LEA_CONTINUE
 
@@ -614,7 +617,6 @@ MATCHED_BEQ:    * write "BEQ" to buffer
                 JSR         WRITE_TO_BUFFER
 
 BCC_NEXT:       * determine displacement
-                JSR         PAD_BUFFER
                 JSR         DECODE_DISPLACEMENT
                 BRA         _0110_RETURN
 
@@ -630,14 +632,17 @@ DECODE_DISPLACEMENT:
                 * check if displacement is 8 or 16 bits
                 CMP         #$00, D0            * 16-bit displacement
                 BEQ         DIS_16_BIT
-
                 BRA         DIS_8_BIT           * 8-bit displacement
 
-DIS_16_BIT:     ADD.L       #2, inst_offset     * update instruction offset
+DIS_16_BIT:     LEA         string_word, A1     * write instruction size
+                JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
+
+                ADD.L       #2, inst_offset     * update instruction offset
                 MOVE.L      start_addr, D0      * PC
                 ADD.L       #2, D0              * PC + 2
 
-                MOVE.L      #0, D1              * clear D0 to hold displacement
+                MOVE.L      #0, D1              * clear D1 to hold displacement
                 MOVE.L      D0, A1              * move address instruction into
                 MOVE.W      (A1), D1            * load displacement in D1
 
@@ -653,24 +658,27 @@ NEG_16:         NEG.W       D1                  * negative displacement
 POS_16:         ADD         D1, D0              * branch location = (PC + 2) + displacement
                 BRA         WRITE_DIS
 
-DIS_8_BIT:      JSR         LOAD_CURRENT_WORD
-                ANDI.L      #$00FF, D0          * isolate displacement bits
+DIS_8_BIT:      LEA         string_byte, A1     * write instruction size
+                JSR         WRITE_TO_BUFFER
+                JSR         PAD_BUFFER
+
+                JSR         LOAD_CURRENT_WORD 
+                MOVE.L      D0, D1              * move instruction into D1
+                ANDI.L      #$00FF, D1          * isolate displacement bits
+
+                MOVE.L      start_addr, D0      * PC
+                ADD.L       #2, D0              * PC + 2
 
                 * apply displacement to PC to get location of label
-                CMP.B       #$80, D1
+                CMP.L       #$0080, D1          * check if displacement is negative
                 BGE         NEG_8
                 BRA         POS_8
 
-NEG_8:          NEG.B       D0                  * negative displacement
-                MOVE.L      start_addr, D1      * PC
-                ADD.L       #2, D1              * PC + 2
-                SUB         D0, D1              * branch location = (PC + 2) - displacement
-                MOVE.L      D1, D0
+NEG_8:          NEG.B       D1                  * negative displacement
+                SUB.L       D1, D0              * branch location = (PC + 2) - displacement
                 BRA         WRITE_DIS
 
-POS_8:          MOVE.L      start_addr, D0      * PC
-                ADD.L       #2, D0              * PC + 2
-                ADD         D1, D0              * branch location = (PC + 2) + displacement
+POS_8:          ADD         D1, D0              * branch location = (PC + 2) + displacement
                 BRA         WRITE_DIS
 
 WRITE_DIS:      JSR         LONG_TO_HEX_STRING  * longword of branch location in D0
