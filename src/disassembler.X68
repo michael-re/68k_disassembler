@@ -177,7 +177,7 @@ DECODE_INSTRUCTION:
                 MULU        #6, D0              * form offset
                 JSR         0(A1,D0)            * jump indirect with index
 
-                * print to screen and go to next intruction
+                * print to screen and go to next instruction
                 LEA         output_buffer, A1   * load output buffer with decoded instruction
                 JSR         PRINT_STRING_LN     * print buffer
                 JSR         NEXT_INSTRUCTION    * go to the next instruction
@@ -951,7 +951,7 @@ CODE_1110:
                 CMP.L       #$0000, D0          * check if arithmetic shift
                 BEQ         MATCHED_ASD
 
-                CMP.L       #$0008, D0          * checkif logical shift
+                CMP.L       #$0008, D0          * check if logical shift
                 BEQ         MATCHED_LSD
 
                 CMP.L       #$0018, D0          * check if rotate
@@ -1011,8 +1011,39 @@ SR_SIZE:        * decode size
                 CMP.L       #ERROR, D6
                 BEQ         EA_SR_MEMORY
 
-                * TODO: check for other variations of opcode
-                BRA         _1110_INVALID
+                JSR         PAD_BUFFER
+
+                * move i/r bit in D1
+                JSR         LOAD_CURRENT_WORD
+                ANDI.L      #$0020, D0          * isolate bit 5
+                MOVE.L      D0, D1              * save i/r bit in D1
+
+                * isolate count/register bits for source
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                ANDI.L      #$0E00, D0          * isolate bits 10-12
+                LSR.W       #SHIFT_6, D0        * shift right by 6
+                LSR.W       #SHIFT_3, D0        * shift right by 3
+
+                * check if i/r bit is shift/rotation is count or register
+                CMP.L       #$0000, D1
+                BEQ         SR_COUNT            * i/r = 0, shift/rotate by count
+                BRA         SR_REG              * i/r = 1, shift/rotate by register
+
+SR_COUNT:       * decode immediate value: 1 - 8
+                JSR         WRITE_QUICK_3       * write quick immediate data to buffer
+                BRA         SR_DST_REG          * decode destination register
+
+SR_REG:         * decode source register
+                MOVE.B      #'D', (A0)+
+                JSR         WRITE_REGISTER_NUM
+                BRA         SR_DST_REG
+
+SR_DST_REG:     JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         WRITE_COMMA         * write comma to buffer
+                ANDI.L      #$0007, D0          * isolate the first 3 bits
+                MOVE.B      #'D', (A0)+         * write 'D' to buffer
+                JSR         WRITE_REGISTER_NUM  * write register number to buffer
+                BRA         _1110_RETURN        * done decoding ASd, LSd, and ROd opcodes
 
 EA_SR_MEMORY:      * opcode only takes a single operand
                 MOVE.L      #$40, D0            * set opcode size to word for single operand
@@ -1510,6 +1541,41 @@ DECODE_SIZE_9:
                 BEQ         DS_WORD             * return word
                 BRA         DS_LONG             * return long
                 RTS                             * return to caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       WRITE_QUICK_3
+*
+* Description:
+*       Decodes the the 3 bit immediate data in D0 and writes it to the buffer
+*       in A0. On exit, A0 will point to the last byte written to the buffer.
+*
+*       The first 3 bits in D0 represent the quick immediate data to decode. The
+*       values 1 – 7 represent counts of 1, and zero specifies a count of eight.
+*
+* Parameters:
+*       A0 - Pointer to buffer to write too.
+*       D0 - Quick immediate data to decode.
+*-------------------------------------------------------------------------------
+WRITE_QUICK_3:
+                MOVEM.L     A1, -(SP)           * save registers
+                CMP.L       #$0000, D0          * check if quick value is zero
+                BEQ         QUICK_SET_8         * quick value = 0,  immediate data is 8
+                BRA         QUICK_WRITE         * write quick value to buffer
+
+QUICK_SET_8:    MOVE.L      #$0008, D0          * set quick value to 8
+QUICK_WRITE:    MOVE.B      #'#', (A0)+         * write '#'' to buffer
+                MOVE.B      #'$', (A0)+         * write '$' to buffer
+                JSR         WORD_TO_HEX_STRING  * convert quick data to hex
+                LEA         word_string_buf, A1 * load converted into A1
+                JSR         WRITE_TO_BUFFER     * write value to buffer
+                MOVEM.L     (SP)+, A1           * restore registers
+                RTS                             * return to caller
+
+
+
 
 
 
