@@ -10,7 +10,7 @@ HT              EQU         $00000009
 MIN_ADDR        EQU         $00000000
 MAX_ADDR        EQU         $00FFFFFF
 STACK           EQU         $0000A000
-BUFFER_SIZE     EQU         $00000064
+BUFFER_SIZE     EQU         $00000016
 CODE_SECTION    EQU         $00001000
 TEXT_SECTION    EQU         $00006000
 
@@ -1769,29 +1769,15 @@ GET_HEX_INPUT:
 
                 LEA         error_msg_e, A1
                 BNE         INVALID_INPUT       * address is not even
+                BRA         RETURN_INPUT        * obtained valid input from user, return
 
-                MOVEM.L     (SP)+, A1/D1        * restore registers
-                RTS                             * return to the caller
-
-
-
-*-------------------------------------------------------------------------------
-* Subroutine:
-*       INVALID_INPUT
-*
-* Description:
-*       Prints the error message that resulted in the invalid input stored in A1
-*       and calls RESTART_PROMPT to check if the user wants to restart the
-*       program or quit.
-*
-* Parameters:
-*       A1 - The error that resulted in the invalid input.
-*-------------------------------------------------------------------------------
-INVALID_INPUT:
-                JSR         PRINT_STRING_LN     * print error message
+INVALID_INPUT:  JSR         PRINT_STRING_LN     * print error message
                 LEA         error_msg, A1       * load invalid input message
                 JSR         PRINT_STRING        * print invalid input
                 BRA         RESTART_PROMPT      * ask user if they want to restart
+
+RETURN_INPUT:   MOVEM.L     (SP)+, A1/D1        * restore registers
+                RTS                             * return to the caller
 
 
 
@@ -1801,9 +1787,8 @@ INVALID_INPUT:
 *
 * Description:
 *       Asks the user if they want to restart the program or quit. If the user
-*       enters "R" or "r", it branches to PROGRAM_BEGIN to restart the program. If they
-*       enter "Q" or "q", it branches to PROGRAM_END to terminate the program.
-*
+*       enters R/r, it branches to PROGRAM_BEGIN to restart the program.
+*       If they enter Q/q, it branches to PROGRAM_END to terminate the program.
 *-------------------------------------------------------------------------------
 RESTART_PROMPT:
                 LEA         restart_msg, A1     * load restart message
@@ -1998,7 +1983,7 @@ CLEAR_INPUT_BUFFER:
                 MOVEM.L     A0/D0, -(SP)        * save registers
                 LEA         input_buffer, A0    * load address of input_buffer into A0
                 MOVE.L      #BUFFER_SIZE, D0    * set D0 to the number of bytes to clear
-CIB_CLEAR:      CLR.B       (A0)+               * clear the byte and increment A0
+CIB_CLEAR:      CLR.L       (A0)+               * clear the byte and increment A0
                 DBF         D0, CIB_CLEAR       * decrement D0 and loop until it becomes zero
                 MOVEM.L     (SP)+, A0/D0        * restore registers
                 RTS                             * return to caller
@@ -2016,7 +2001,7 @@ CLEAR_OUTPUT_BUFFER:
                 MOVEM.L     A0/D0, -(SP)        * save registers
                 LEA         output_buffer, A0   * load address of output_buffer into A0
                 MOVE.L      #BUFFER_SIZE, D0    * set D0 to the number of bytes to clear
-COB_CLEAR:      CLR.B       (A0)+               * clear the byte and increment A0
+COB_CLEAR:      CLR.L       (A0)+               * clear the byte and increment A0
                 DBF         D0, COB_CLEAR       * decrement D0 and loop until it becomes zero
                 MOVEM.L     (SP)+, A0/D0        * restore registers
                 RTS                             * return to caller
@@ -2085,8 +2070,8 @@ CLEAR_REGISTERS:
 start_addr      DC.L        $0          * address of instruction to disassemble
 end_addr        DC.L        $0          * address of the last instruction to disassemble
 inst_offset     DC.L        $2          * offset to the next instruction
-input_buffer    DS.B        BUFFER_SIZE * buffer to store string user input (256 chars)
-output_buffer   DS.B        BUFFER_SIZE * buffer to store string to display (256 chars)
+input_buffer    DS.L        BUFFER_SIZE * buffer to store string user input (88 chars)
+output_buffer   DS.L        BUFFER_SIZE * buffer to store string to display (88 chars)
 
 long_string_buf DC.B       '        ', 0
 word_string_buf DC.B       '    ', 0
