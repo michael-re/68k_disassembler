@@ -11,18 +11,19 @@ MIN_ADDR        EQU         $00000000
 MAX_ADDR        EQU         $00FFFFFF
 STACK           EQU         $0000A000
 BUFFER_SIZE     EQU         $00000064
-CODE_SEC        EQU         $00001000
-TEXT_SEC        EQU         $00006000
+CODE_SECTION    EQU         $00001000
+TEXT_SECTION    EQU         $00006000
 
 SHIFT_12        EQU         12
 SHIFT_8         EQU         8
 SHIFT_6         EQU         6
 SHIFT_3         EQU         3
+SHIFT_1         EQU         1
 
 * error value
 ERROR           EQU        -1
 
-* EA values
+* <ea> values
 DN_EA           EQU         1
 AN_EA           EQU         2
 ANI_EA          EQU         3
@@ -41,33 +42,31 @@ LONG_VALUE      EQU         3
 DN_TO_EA        EQU         $0100
 DIR_LEFT        EQU         $0100
 
-START:          ORG         CODE_SEC
+START:          ORG         CODE_SECTION
                 LEA         welcome_msg, A1     * load welcome message
                 JSR         PRINT_STRING_LN     * print welcome message
 
-PROGRAM_BEGIN:
-                LEA         STACK, SP           * reset stack pointer
+PROGRAM_BEGIN:  LEA         STACK, SP           * reset stack pointer
                 JSR         CLEAR_REGISTERS     * set all register values to 0
 
                 * print rules for input
-                LEA         rule_msg, A1
-                JSR         PRINT_STRING_LN
+                LEA         rule_msg, A1        * load rules
+                JSR         PRINT_STRING_LN     * print rules
 
                 * get starting address from user
-                LEA         start_msg, A1
-                JSR         GET_HEX_INPUT
-                MOVE.L      D0, start_addr
+                LEA         start_msg, A1       * load prompt asking for the starting address
+                JSR         GET_HEX_INPUT       * read in user input
+                MOVE.L      D0, start_addr      * save user input to start_addr
 
                 * get ending address from user
-                LEA         end_msg, A1
-                JSR         GET_HEX_INPUT
-                MOVE.L      D0, end_addr
+                LEA         end_msg, A1         * load prompt asking for the ending address
+                JSR         GET_HEX_INPUT       * read in user input
+                MOVE.L      D0, end_addr        * save user input to end_addr
 
                 * disassemble instructions
                 JSR         DISASSEMBLE
 
-PROGRAM_END:
-                JSR         PRINT_NEWLINE       * print empty line
+PROGRAM_END:    JSR         PRINT_NEWLINE       * print empty line
                 JSR         PRINT_NEWLINE       * print empty line
                 LEA         goodbye_msg, A1     * load goodbye message
                 JSR         PRINT_STRING_LN     * display goodbye message
@@ -101,17 +100,17 @@ DIS_LOOP:       JSR         DISASSEMBLE_PAGE    * disassemble a page of instruct
                 BGE         DIS_END             * exit loop if start_addr >= end_addr
 
                 * more instructions left to decode, ask user if they want to continue
-                LEA         continue_msg, A1    * load address of continue message into A1
+                LEA         continue_msg, A1    * load continue message
                 JSR         PRINT_STRING        * print continue message
                 JSR         READ_CHAR           * read character from keyboard
 
                 CMP.B       #CR, D1             * check if user entered "enter"
-                BEQ         DIS_LOOP            * disassemble next page
+                BEQ         DIS_LOOP            * if so, disassemble next page
 
                 * done disassembling instructions in memory
-DIS_END:        LEA         finish_msg, A1      * load address of finish message into A1
+DIS_END:        LEA         finish_msg, A1      * load finish message
                 JSR         PRINT_NEWLINE       * print empty line
-                JSR         PRINT_STRING_LN     * print message with and an empty line
+                JSR         PRINT_STRING_LN     * print finish message
                 JSR         RESTART_PROMPT      * ask if user wants to restart or terminate program
                 MOVEM.L     (SP)+, A0-A6/D0-D7  * restore registers
                 RTS                             * return to caller
@@ -162,10 +161,10 @@ DECODE_INSTRUCTION:
                 MOVEM.L     A0-A6/D0-D7, -(SP)  * save registers
                 JSR         CLEAR_REGISTERS     * clear registers
 
-                * print current address
+                * print current address - memory location
                 MOVE.L      start_addr, D0      * load start_addr into D0
                 JSR         LONG_TO_HEX_STRING  * convert address to hex string
-                LEA         long_string_buf, A1 * load address of hex string
+                LEA         long_string_buf, A1 * load converted hex string
                 JSR         PRINT_STRING        * print hex string
                 JSR         RESET_BUFFER_AND_OFFSET
 
@@ -213,7 +212,7 @@ OPCODE_TABLE:
 *       This disassembler does not decode any opcodes that begins with 0000.
 *-------------------------------------------------------------------------------
 CODE_0000:
-                JSR         INVALID_OPCODE
+                JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
                 RTS                             * return to caller
 
 
@@ -226,25 +225,24 @@ CODE_0000:
 *           - MOVE.B
 *-------------------------------------------------------------------------------
 CODE_0001:
-                * write opcode name to buffer
-                LEA         string_moveb, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
+                LEA         string_moveb, A1    * load opcode name
+DECODE_MOVE_EA: JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JSR         PAD_BUFFER          * pad buffer before decoding operands
 
-DECODE_MOVE_EA: * decode source EA
+                * decode source <ea> for move instructions
                 JSR         LOAD_CURRENT_WORD   * load current instruction
-                JSR         DECODE_EA           * get source EA
+                JSR         DECODE_EA           * get source <ea>
                 JSR         WRITE_COMMA         * write ', ' to buffer
-                CMP         #ERROR, D0          * check for invalid source EA
+                CMP         #ERROR, D0          * check for invalid source <ea>
                 BEQ         _0001_INVALID
 
-                * decode destination EA
-                JSR         LOAD_CURRENT_WORD   * load current instruction
+                * decode destination <ea>
+                JSR         LOAD_CURRENT_WORD   * reload current instruction
                 JSR         LOAD_DST_EA         * load destination mode and reg
-                JSR         DECODE_EA           * get destination EA
+                JSR         DECODE_EA           * get destination <ea>
 
-                * check destination EA, MOVE supports all but An and #imm
-                CMP         #ERROR, D0          * check for invalid EA
+                * check destination <ea>, MOVE supports all but An and #imm
+                CMP         #ERROR, D0          * check for invalid <ea>
                 BEQ         _0001_INVALID
 
                 CMP         #AN_EA, D0          * check for An
@@ -253,9 +251,9 @@ DECODE_MOVE_EA: * decode source EA
                 CMP         #IMM_EA, D0         * check for #imm
                 BEQ         _0001_INVALID
 
-                BRA         _0001_RETURN        * done decoding MOVE.B
+                BRA         _0001_RETURN        * done decoding MOVE
 
-_0001_INVALID:  JSR         INVALID_OPCODE
+_0001_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _0001_RETURN:   RTS                             * return to caller
 
 
@@ -269,47 +267,49 @@ _0001_RETURN:   RTS                             * return to caller
 *           - MOVEA.L
 *-------------------------------------------------------------------------------
 CODE_0010:
-                * to determine if MOVE or MOVEA, we need to first check destination EA
-                MOVE.L      #LONG_VALUE, D7
-                JSR         LOAD_CURRENT_WORD
-                JSR         LOAD_DST_EA
-                JSR         DECODE_EA
+                * to determine if MOVE or MOVEA, we need to first check the destination <ea>
+                MOVE.L      #LONG_VALUE, D3     * set size of opcode to long
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                JSR         LOAD_DST_EA         * load destination mode and reg
+                JSR         DECODE_EA           * get destination <ea>
+
+                * reset output buffer and instruction offset because decoding
+                * destination <ea> will have potential modified them
                 JSR         RESET_BUFFER_AND_OFFSET
 
-                CMP         #ERROR, D0          * check for invalid EA
+                CMP         #ERROR, D0          * check for invalid <ea>
                 BEQ         _0010_INVALID
 
                 CMP         #AN_EA, D0          * if An, it's MOVEA.L
                 BEQ         MATCHED_MOVEAL
 
-                * decode MOVE.L
-                LEA         string_movel, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
-                JMP         DECODE_MOVE_EA
+                * <ea> != An --> decode MOVE.L
+                LEA         string_movel, A1    * load opcode name
+                JMP         DECODE_MOVE_EA      * decode source and destination operands
 
-MATCHED_MOVEAL:
-                * print "MOVEA.L" to buffer
-                LEA         string_moveal, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
+MATCHED_MOVEAL: LEA         string_moveal, A1   * load opcode name
 
-                * decode source EA - MOVEA supports all EA for source
+DECODE_MOVEA_EA:
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JSR         PAD_BUFFER          * pad buffer before decoding operands
+
+                * decode source <ea> - MOVEA supports all <ea> for source
                 JSR         LOAD_CURRENT_WORD   * load current instruction
-                JSR         DECODE_EA           * get source EA
+                JSR         DECODE_EA           * get source <ea>
                 JSR         WRITE_COMMA         * write ', ' to buffer
-                CMP         #ERROR, D0          * check for invalid source EA
+                CMP         #ERROR, D0          * check for invalid source <ea>
                 BEQ         _0010_INVALID
 
-                * decode destination EA - MOVEA only supports An for destination
+                * decode destination <ea> - MOVEA only supports An for destination
                 JSR         LOAD_CURRENT_WORD   * load current instruction
                 JSR         LOAD_DST_EA         * load destination mode and reg
-                JSR         DECODE_EA           * get destination EA
-                CMP         #AN_EA, D0          * check if An EA
-                BEQ         _0010_RETURN        * done decoding MOVEA.L
+                JSR         DECODE_EA           * get destination <ea>
+                CMP         #AN_EA, D0          * check if An <ea>
+                BEQ         _0010_RETURN        * done decoding MOVEA
 
-_0010_INVALID:  JSR         INVALID_OPCODE
+_0010_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _0010_RETURN:   RTS                             * return to caller
+
 
 *-------------------------------------------------------------------------------
 * Subroutine:
@@ -321,46 +321,31 @@ _0010_RETURN:   RTS                             * return to caller
 *           - MOVEA.W
 *-------------------------------------------------------------------------------
 CODE_0011:
-                * to determine if MOVE or MOVEA, we need to first check destination EA
-                JSR         LOAD_CURRENT_WORD
-                JSR         LOAD_DST_EA
-                JSR         DECODE_EA
-                JSR         RESET_BUFFER_AND_OFFSET
-
-                CMP         #ERROR, D0          * check for invalid EA
-                BEQ         _0011_INVALID
-
-                CMP         #AN_EA, D0          * if An, it's MOVEA.W
-                BEQ         MATCHED_MOVEAW
-
-                * decode MOVE.W
-                LEA         string_movew, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
-                JMP         DECODE_MOVE_EA
-
-MATCHED_MOVEAW:
-                * print "MOVEA.W" t buffer
-                LEA         string_moveaw, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
-
-                * decode source EA - MOVEA supports all EA for source
-                JSR         LOAD_CURRENT_WORD   * load current instruction
-                JSR         DECODE_EA           * get source EA
-                JSR         WRITE_COMMA         * write ', ' to buffer
-                CMP         #ERROR, D0          * check for invalid source EA
-                BEQ         _0011_INVALID
-
-                * decode destination EA - MOVEA only supports An for destination
+                * to determine if MOVE or MOVEA, we need to first check destination <ea>
                 JSR         LOAD_CURRENT_WORD   * load current instruction
                 JSR         LOAD_DST_EA         * load destination mode and reg
-                JSR         DECODE_EA           * get destination EA
-                CMP         #AN_EA, D0          * check if An EA
-                BEQ         _0011_RETURN        * done decoding MOVEA.L
+                JSR         DECODE_EA           * decode destination <ea>
 
-_0011_INVALID:  JSR         INVALID_OPCODE
+                * reset output buffer and instruction offset because decoding
+                * destination <ea> will have potential modified them
+                JSR         RESET_BUFFER_AND_OFFSET
+
+                CMP         #ERROR, D0          * check for invalid
+                BEQ         _0011_INVALID       * no reason to decoding anymore
+
+                CMP         #AN_EA, D0          * check if <ea> is An
+                BEQ         MATCHED_MOVEAW      * <ea> = An --> MOVEA.W
+
+                * <ea> != An -->  decode MOVE.W
+                LEA         string_movew, A1    * load opcode name into A1
+                JMP         DECODE_MOVE_EA      * decode source and destination operands
+
+MATCHED_MOVEAW: LEA         string_moveaw, A1   * load opcode name
+                JMP         DECODE_MOVEA_EA     * decode source and destination operands
+
+_0011_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
 _0011_RETURN:   RTS                             * return to caller
+
 
 *-------------------------------------------------------------------------------
 * Subroutine:
@@ -378,70 +363,63 @@ CODE_0100:
                 * check if instruction is NOP
                 JSR         LOAD_CURRENT_WORD   * load current instruction
                 CMP         #$4E71, D0          * compare against NOP
-                BEQ         MATCHED_NOP
+                BEQ         MATCHED_NOP         * decode NOP
 
                 * check if instruction RTS
                 CMP         #$4E75, D0          * compare against RTS
-                BEQ         MATCHED_RTS
+                BEQ         MATCHED_RTS         * decode RTS
 
                 * check if instruction is JSR
                 MOVE.B      #SHIFT_6, D1        * shift 6 bits to the right
                 LSR.W       D1, D0              * isolate bits 15 - 6
                 CMP         #$13A, D0           * compare against JSR
-                BEQ         MATCHED_JSR
+                BEQ         MATCHED_JSR         * decode JSR
 
                 * check if instruction is LEA.L
                 ANDI.L      #$7, D0             * isolate the last 3 bits
                 CMP         #$7, D0             * check if its LEA.L
-                BEQ         MATCHED_LEA
+                BEQ         MATCHED_LEA         * decode LEA
 
                 * check if instruction is NOT
                 JSR         LOAD_CURRENT_WORD   * load current instruction
                 MOVE.B      #SHIFT_8, D1        * shift 8 bits to the right
                 LSR.W       D1, D0              * isolate bits 15 - 8
                 CMP         #$46, D0            * check against NOT
-                BEQ         MATCHED_NOT
+                BEQ         MATCHED_NOT         * decode NOT
 
                 * couldn't decode word to valid instruction
-_0100_INVALID:  JSR         INVALID_OPCODE
-                BRA         _0100_RETURN
+_0100_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+                BRA         _0100_RETURN        * return to caller
 
-MATCHED_NOP:
-                * load "NOP" into output buffer
-                LEA         string_nop, A1
-                JSR         WRITE_TO_BUFFER
+MATCHED_NOP:    * decode NOP
+                LEA         string_nop, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
                 BRA         _0100_RETURN        * done decoding NOP
 
-MATCHED_RTS:
-                * load "RTS" into output buffer
-                LEA         string_rts, A1
-                JSR         WRITE_TO_BUFFER
+MATCHED_RTS:    * decode RTS
+                LEA         string_rts, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
                 BRA         _0100_RETURN        * done decoding RTS
 
-MATCHED_NOT:
-                * load "NOT" into output buffer
-                LEA         string_not, A1
-                JSR         WRITE_TO_BUFFER
+MATCHED_NOT:    * decode NOT
+                LEA         string_not, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
 
-                * print size
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_SIZE_78
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         DECODE_SIZE_78      * decode opcode size
 
-                * check if valid size was decoded
-                CMP         #ERROR, D0
-                BEQ         _0100_INVALID
+                CMP         #ERROR, D0          * check if valid size was decoded
+                BEQ         _0100_INVALID       * something went wrong
 
-                * align start of operands
-                JSR         PAD_BUFFER
-
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         DECODE_EA           * get addressing mode
 
-                * NOT supports all EA except An and #imm
+                * NOT supports all <ea> except An and #imm
                 CMP.L       #ERROR, D0          * invalid addressing mode
                 BEQ         _0100_INVALID
 
-                CMP.L       #AN_EA, D0         * does not support An
+                CMP.L       #AN_EA, D0          * does not support An
                 BEQ         _0100_INVALID
 
                 CMP.L       #IMM_EA, D0         * does not support #imm
@@ -449,17 +427,15 @@ MATCHED_NOT:
 
                 BRA _0100_RETURN                * done decoding NOT
 
-MATCHED_JSR:
-                * load "JSR" into output buffer
-                LEA         string_jsr, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
+MATCHED_JSR:    * decode JSR
+                LEA         string_jsr, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
 
-                * get addressing mode for JSR
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_EA
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         DECODE_EA           * get addressing mode
 
-                * JSR supports the following EA - (An), (xxx).W, (xxx).L
+                * JSR supports the following <ea> - (An), (xxx).W, (xxx).L
                 CMP.L       #ANI_EA, D0         * check if decoded (An)
                 BEQ         _0100_RETURN
 
@@ -471,33 +447,31 @@ MATCHED_JSR:
 
                 BRA         _0100_INVALID       * invalid addressing returned
 
-MATCHED_LEA:
-                * load "LEA" into output buffer
-                LEA         string_lea, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
+MATCHED_LEA:    * decode LEA
+                LEA         string_lea, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
 
                 JSR         LOAD_CURRENT_WORD   * reload instruction
-                JSR         DECODE_EA           * get source EA
+                JSR         DECODE_EA           * get source <ea>
 
-                * LEA supports the following EA - (An), (xxx).W, (xxx).L
+                * LEA supports the following source <ea> - (An), (xxx).W, (xxx).L
                 CMP.L       #ANI_EA, D0         * check if decoded (An)
-                BEQ         LEA_CONTINUE
+                BEQ         LEA_DST
 
                 CMP.L       #ABSW_EA, D0        * check if decoded (xxx).W
-                BEQ         LEA_CONTINUE
+                BEQ         LEA_DST
 
                 CMP.L       #ABSL_EA, D0        * check if decoded (xxx).L
-                BEQ         LEA_CONTINUE
+                BEQ         LEA_DST
 
-                BRA         _0100_INVALID
+                BRA         _0100_INVALID       * invalid LEA
 
-LEA_CONTINUE:   JSR         WRITE_COMMA         * write ', ' to buffer
+LEA_DST:        JSR         WRITE_COMMA         * write ', ' to buffer
                 JSR         LOAD_CURRENT_WORD   * reload instruction
-                JSR         LOAD_DST_EA         * load EA for destination
-                ANDI.L      #$0F, D0            * set to An
+                JSR         LOAD_DST_EA         * load destination mode and reg
+                ANDI.L      #$000F, D0          * set destination mode to An
                 JSR         DECODE_EA           * get addressing mode for destination
-
                 BRA         _0100_RETURN        * done decoding LEA
 
 _0100_RETURN:   RTS                             * return to caller
@@ -512,56 +486,43 @@ _0100_RETURN:   RTS                             * return to caller
 *           - ADDQ
 *-------------------------------------------------------------------------------
 CODE_0101:
-                * write "ADDQ" to buffer
-                LEA         string_addq, A1
-                JSR         WRITE_TO_BUFFER
+                LEA         string_addq, A1     * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
 
                 * decode instruction size
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_SIZE_78
-                JSR         PAD_BUFFER
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                JSR         DECODE_SIZE_78      * decode opcode size
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
 
-                CMP.L       #ERROR, D0
+                CMP.L       #ERROR, D0          * check if decoded size is invalid
                 BEQ         _0101_INVALID
 
                 * decode immediate value: 1 - 8
-                JSR         LOAD_CURRENT_WORD
-                ANDI.L      #$F00, D0
-                LSR.L       #SHIFT_8, D0
-                MOVE.L      D0, D1
-                ANDI.L      #1, D1
-                CMP.L       #0, D1              * validate that this is ADDQ
-                BNE         _0101_INVALID
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                LSR.L       #SHIFT_8, D0        * shift bits 9-12 to the front
+                ANDI.L      #$000F, D0          * isolate the first 4 bits
+                MOVE.L      D0, D1              * make copy of the first 4 bits
+                ANDI.L      #1, D1              * isolate the least significant bit
+                BNE         _0101_INVALID       * validate that this is ADDQ
 
-                LSR.L       #1, D0
-                CMP.W       #0, D0              * if value is 0, immediate data is 8
-                BEQ         ADDQ_SET_8
-                BRA         ADDQ_NEXT
+                LSR.L       #SHIFT_1, D0        * remove least significant bit
+                JSR         WRITE_QUICK_3       * decode 3 bit immediate data
+                JSR         WRITE_COMMA         * write ', ' to buffer
 
-ADDQ_SET_8:     MOVE.L      #8, D0
-
-                * write immediate data to buffer
-ADDQ_NEXT:      MOVE.B      #'#', (A0)+
-                MOVE.B      #'$', (A0)+
-                JSR         WORD_TO_HEX_STRING
-                LEA         word_string_buf, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         WRITE_COMMA
-
-                * decode destination EA
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_EA
+                * decode destination <ea>
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         DECODE_EA           * decode destination <ea>
 
                 * check for error
-                CMP.L       #ERROR, D0
+                CMP.L       #ERROR, D0          * check if destination <ea> is invalid
                 BEQ         _0101_INVALID
 
-                * can't have immediate data as destination
-                CMP.L       #IMM_EA, D0
+                CMP.L       #IMM_EA, D0         * can't have immediate data as destination <ea>
                 BEQ         _0101_INVALID
+
                 BRA         _0101_RETURN        * done decoding ADDQ
 
-_0101_INVALID:  JSR         INVALID_OPCODE
+_0101_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
 _0101_RETURN:   RTS                             * return to caller
 
 
@@ -577,114 +538,47 @@ _0101_RETURN:   RTS                             * return to caller
 *           - BRA
 *-------------------------------------------------------------------------------
 CODE_0110:
-                JSR         LOAD_CURRENT_WORD
-                ANDI.L      #$0F00, D0          * isolate condition bits
-                LSR.L       #SHIFT_8, D0        * move them to the first 4 bits
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                LSR.L       #SHIFT_8, D0        * move condition bits to the first 4 bits
+                ANDI.L      #$000F, D0          * isolate condition bits
 
                 * determine if BGT, BLE, or BEQ, or BRA
-                CMP         #$0, D0             * BRA
+                CMP         #$0000, D0          * BRA
                 BEQ         MATCHED_BRA
 
-                CMP         #$E, D0             * BGT
+                CMP         #$000E, D0          * BGT
                 BEQ         MATCHED_BGT
 
-                CMP         #$F, D0             * BLE
+                CMP         #$000F, D0          * BLE
                 BEQ         MATCHED_BLE
 
-                CMP         #$7, D0             * BEQ
+                CMP         #$0007, D0          * BEQ
                 BEQ         MATCHED_BEQ
 
                 BRA         _0110_INVALID
 
-MATCHED_BRA:    * write "BRA" to buffer
-                LEA         string_bra, A1
-                JSR         WRITE_TO_BUFFER
-                BRA         BCC_NEXT
+MATCHED_BRA:    * decode BRA
+                LEA         string_bra, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JMP         DECODE_DISPLACEMENT * decode displacement
 
-MATCHED_BGT:    * write "BGT" to buffer
-                LEA         string_bgt, A1
-                JSR         WRITE_TO_BUFFER
-                BRA         BCC_NEXT
+MATCHED_BGT:    * decode BGT
+                LEA         string_bgt, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JMP         DECODE_DISPLACEMENT * decode displacement
 
-MATCHED_BLE:    * write "BLE" to buffer
-                LEA         string_ble, A1
-                JSR         WRITE_TO_BUFFER
-                BRA         BCC_NEXT
+MATCHED_BLE:    * decode BLE
+                LEA         string_ble, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JMP         DECODE_DISPLACEMENT * decode displacement
 
-MATCHED_BEQ:    * write "BEQ" to buffer
-                LEA         string_beq, A1
-                JSR         WRITE_TO_BUFFER
+MATCHED_BEQ:    * decode BEQ
+                LEA         string_beq, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JMP         DECODE_DISPLACEMENT * decode displacement
 
-BCC_NEXT:       * determine displacement
-                JSR         DECODE_DISPLACEMENT
-                BRA         _0110_RETURN
-
-_0110_INVALID:  JSR         INVALID_OPCODE
+_0110_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
 _0110_RETURN:   RTS                             * return to caller
-
-
-
-DECODE_DISPLACEMENT:
-                JSR         LOAD_CURRENT_WORD   * reload instruction
-                ANDI.L      #$00FF, D0          * isolate displacement bits
-
-                * check if displacement is 8 or 16 bits
-                CMP         #$00, D0            * 16-bit displacement
-                BEQ         DIS_16_BIT
-                BRA         DIS_8_BIT           * 8-bit displacement
-
-DIS_16_BIT:     LEA         string_word, A1     * write instruction size
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
-
-                ADD.L       #2, inst_offset     * update instruction offset
-                MOVE.L      start_addr, D0      * PC
-                ADD.L       #2, D0              * PC + 2
-
-                MOVE.L      #0, D1              * clear D1 to hold displacement
-                MOVE.L      D0, A1              * move address instruction into
-                MOVE.W      (A1), D1            * load displacement in D1
-
-                * apply displacement to PC to get location of label
-                CMP.L       #$8000, D1          * check if displacement is negative
-                BGE         NEG_16
-                BRA         POS_16
-
-NEG_16:         NEG.W       D1                  * negative displacement
-                SUB.L       D1, D0              * branch location = (PC + 2) - displacement
-                BRA         WRITE_DIS
-
-POS_16:         ADD         D1, D0              * branch location = (PC + 2) + displacement
-                BRA         WRITE_DIS
-
-DIS_8_BIT:      LEA         string_byte, A1     * write instruction size
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
-
-                JSR         LOAD_CURRENT_WORD
-                MOVE.L      D0, D1              * move instruction into D1
-                ANDI.L      #$00FF, D1          * isolate displacement bits
-
-                MOVE.L      start_addr, D0      * PC
-                ADD.L       #2, D0              * PC + 2
-
-                * apply displacement to PC to get location of label
-                CMP.L       #$0080, D1          * check if displacement is negative
-                BGE         NEG_8
-                BRA         POS_8
-
-NEG_8:          NEG.B       D1                  * negative displacement
-                SUB.L       D1, D0              * branch location = (PC + 2) - displacement
-                BRA         WRITE_DIS
-
-POS_8:          ADD         D1, D0              * branch location = (PC + 2) + displacement
-                BRA         WRITE_DIS
-
-WRITE_DIS:      JSR         LONG_TO_HEX_STRING  * longword of branch location in D0
-                LEA         long_string_buf, A1 * prepare to write branch location
-                MOVE.B      #'$', (A0)+
-                JSR         WRITE_TO_BUFFER     * write branch location to buffer
-                RTS                             * return to caller
 
 
 *-------------------------------------------------------------------------------
@@ -696,41 +590,34 @@ WRITE_DIS:      JSR         LONG_TO_HEX_STRING  * longword of branch location in
 *           - MOVEQ.L
 *-------------------------------------------------------------------------------
 CODE_0111:
-                * write "MOVEQ.L" to buffer
-                LEA         string_moveq, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         PAD_BUFFER
+                LEA         string_moveq, A1    * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
 
                 * write immediate data to buffer
-                JSR         LOAD_CURRENT_WORD
-                ANDI.L      #$00FF, D0          * isolate immediate data
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                ANDI.L      #$00FF, D0          * isolate immediate data bits
+                MOVE.B      #'#', (A0)+         * write '#' to buffer
+                MOVE.B      #'$', (A0)+         * write '$' to buffer
+                JSR         WORD_TO_HEX_STRING  * convert immediate data to string
+                LEA         word_string_buf, A1 * load converted immediate data string
+                JSR         WRITE_TO_BUFFER     * write immediate data string to buffer
+                JSR         WRITE_COMMA         * write ', ' to buffer
 
-                MOVE.B      #'#', (A0)+
-                MOVE.B      #'$', (A0)+
-                JSR         WORD_TO_HEX_STRING
-                LEA         word_string_buf, A1
-                JSR         WRITE_TO_BUFFER
-                JSR         WRITE_COMMA
+                * decode destination register
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                LSR.L       #SHIFT_8, D0        * shift bits 9-12 to the front
+                ANDI.L      #$000F, D0          * isolate the first 4 bits
+                MOVE.L      D0, D1              * make copy of the first 4 bits
+                ANDI.L      #1, D1              * isolate the least significant bit
+                BNE         _0101_INVALID       * validate that this is MOVEQ
 
-                * decode Dn register
-                JSR         LOAD_CURRENT_WORD
-                ANDI.L      #$0F00, D0
-                LSR.L       #SHIFT_8, D0
+                LSR         #SHIFT_1, D0        * remove least significant bit
+                MOVE.B      #'D', (A0)+         * write 'D' to buffer
+                JSR         WRITE_REGISTER_NUM  * write register number to buffer
+                BRA         _0111_RETURN        * done decoding MOVEQ
 
-                MOVE.L      D0, D1
-                ANDI.L      #1, D1
-                CMP.L       #0, D1              * validate that this is MOVEQ
-                BNE         _0111_INVALID
-
-                LSR.L       #1, D0              * shift right one more time to isolate register bits
-
-                * write register number to buffer
-                ADD.B       #'0', D0
-                MOVE.B      #'D', (A0)+
-                MOVE.B      D0, (A0)+
-                BRA         _0111_RETURN
-
-_0111_INVALID:  JSR         INVALID_OPCODE
+_0111_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
 _0111_RETURN:   RTS                             * return to caller
 
 
@@ -743,9 +630,8 @@ _0111_RETURN:   RTS                             * return to caller
 *           - OR
 *-------------------------------------------------------------------------------
 CODE_1000:
-                * load "OR" into output buffer
-                LEA         string_or, A1
-                JSR         WRITE_TO_BUFFER
+                LEA         string_or, A1       * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
 
                 * decode operands
 OR_OPERANDS:    JSR         DECODE_DN_EA_DN_OPERANDS
@@ -755,23 +641,21 @@ OR_OPERANDS:    JSR         DECODE_DN_EA_DN_OPERANDS
                 CMP.L       #ERROR, D1          * check if source is invalid
                 BEQ         _1000_INVALID
 
-                * validate decoded effective address fields
-                CMP.L       #DN_TO_EA, D2
+                * validate decoded <ea> fields
+                CMP.L       #DN_TO_EA, D2       * check if decoded Dn, <ea>
                 BEQ         DNEA_DN_AN_IMM_CHECK
 
-                * decode <ea>, Dn: if the location specified is a source
+                * decoded <ea>, Dn: if the location specified is a source
                 * operand, only data addressing modes can be used: Dn, (An),
-                * (An)+, -(An), (xxx).W, (xxx).L, #<data> -- everything but An
-
+                * (An)+, -(An), (xxx).W, (xxx).L, #<data> --> everything but An
                 CMP.L       #AN_EA, D1          * check if source is An
                 BEQ         _1000_INVALID
 
                 CMP.L       #DN_EA, D0          * check if destination is not Dn
                 BNE         _1000_INVALID
-
                 BRA         _1000_RETURN
 
-                * decode Dn, <ea>: if the location specified is a destination
+                * decoded Dn, <ea>: if the location specified is a destination
                 * operand, only memory alterable addressing modes can be used:
                 * (An), (An)+, -(An), (xxx).W, (xxx).L
                 *
@@ -791,7 +675,7 @@ DNEA_DN_AN_IMM_CHECK:
 
                 BRA         _1000_RETURN
 
-_1000_INVALID:  JSR         INVALID_OPCODE
+_1000_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
 _1000_RETURN:   RTS                             * return to caller
 
 
@@ -804,9 +688,8 @@ _1000_RETURN:   RTS                             * return to caller
 *           - SUB
 *-------------------------------------------------------------------------------
 CODE_1001:
-                * load "SUB" into output buffer
-                LEA         string_sub, A1
-                JSR         WRITE_TO_BUFFER
+                LEA         string_sub, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
 
                 * decode operands
 SUB_PATTERN:    JSR         DECODE_DN_EA_DN_OPERANDS
@@ -816,8 +699,8 @@ SUB_PATTERN:    JSR         DECODE_DN_EA_DN_OPERANDS
                 CMP.L       #ERROR, D1          * check if source is invalid
                 BEQ         _1001_INVALID
 
-                * validate decoded effective address fields
-                CMP.L       #DN_TO_EA, D2
+                * validate decoded <ea> fields
+                CMP.L       #DN_TO_EA, D2       * check if decoded Dn, <ea>
                 BEQ         DNEA_DN_AN_IMM_CHECK
 
                 * decode <ea>, Dn: if the location specified is a source
@@ -826,14 +709,14 @@ SUB_PATTERN:    JSR         DECODE_DN_EA_DN_OPERANDS
                 BNE         _1000_INVALID
 
                 * An only supports word and long size instruction
-                CMP.L       #AN_EA, D0
-                BEQ         VALIDATE_ANB
+                CMP.L       #AN_EA, D0          * An only supports word and long size instruction
+                BEQ         VALIDATE_ANB        * validate opcode size
                 BRA         _1000_RETURN
 
-VALIDATE_ANB:   CMP         #BYTE_VALUE, D7
+VALIDATE_ANB:   CMP         #BYTE_VALUE, D3     * make sure opcode is not byte-sized
                 BNE         _1001_RETURN
 
-_1001_INVALID:  JSR         INVALID_OPCODE
+_1001_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
 _1001_RETURN:   RTS                             * return to caller
 
 
@@ -845,7 +728,7 @@ _1001_RETURN:   RTS                             * return to caller
 *       This disassembler does not decode any opcodes that begins with 1010.
 *-------------------------------------------------------------------------------
 CODE_1010:
-                JSR         INVALID_OPCODE
+                JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
                 RTS                             * return to caller
 
 
@@ -857,7 +740,7 @@ CODE_1010:
 *       This disassembler does not decode any opcodes that begins with 1011.
 *-------------------------------------------------------------------------------
 CODE_1011:
-                JSR         INVALID_OPCODE
+                JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
                 RTS                             * return to caller
 
 
@@ -870,11 +753,10 @@ CODE_1011:
 *           - AND
 *-------------------------------------------------------------------------------
 CODE_1100:
-                * load "AND" into output buffer
-                LEA         string_and, A1
-                JSR         WRITE_TO_BUFFER
+                LEA         string_and, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
                 JMP         OR_OPERANDS         * AND has the same pattern as OR
-                JSR         INVALID_OPCODE
+                JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
                 RTS                             * return to caller
 
 
@@ -888,38 +770,39 @@ CODE_1100:
 *           - ADDA
 *-------------------------------------------------------------------------------
 CODE_1101:
-                JSR         LOAD_CURRENT_WORD
-                ANDI.L      #$C0, D0
-                CMP         #$C0, D0          * check if ADDA
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                ANDI.L      #$00C0, D0          * isolate bit 7 and 8
+                CMP         #$00C0, D0          * check if ADDA opcode
                 BEQ         MATCHED_ADDA
 
                 * decode ADD - it has the same pattern as SUB
-                LEA         string_add, A1
-                JSR         WRITE_TO_BUFFER
-                JMP         SUB_PATTERN
+                LEA         string_add, A1      * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                JMP         SUB_PATTERN         * decode source and destination operands
 
-MATCHED_ADDA:
-                LEA         string_adda, A1
-                JSR         WRITE_TO_BUFFER
+MATCHED_ADDA:   * decode ADDA
+                LEA         string_adda, A1     * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
 
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_SIZE_9
-                MOVE.L      D0, D7
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         DECODE_SIZE_9       * decode opcode size
+                MOVE.L      D0, D3              * save size to D3
 
-                JSR         LOAD_CURRENT_WORD
-                JSR         PAD_BUFFER
-                JSR         DECODE_EA
-                CMP         #ERROR, D0
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
+                JSR         DECODE_EA           * decode source <ea>
+                CMP         #ERROR, D0          * check <ea> for error
                 BEQ         _1101_INVALID
 
-                JSR         LOAD_CURRENT_WORD
-                JSR         WRITE_COMMA
-                JSR         LOAD_DST_EA
-                ANDI.L      #$0F, D0
-                JSR         DECODE_EA
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         WRITE_COMMA         * write ', ' to buffer
+
+                JSR         LOAD_DST_EA         * load destination mode and reg
+                ANDI.L      #$000F, D0          * set mode to An
+                JSR         DECODE_EA           * decode destination <ea>
                 BRA         _1101_RETURN
 
-_1101_INVALID:  JSR         INVALID_OPCODE
+_1101_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
 _1101_RETURN:   RTS                             * return to caller
 
 
@@ -937,15 +820,13 @@ _1101_RETURN:   RTS                             * return to caller
 *           - ROR
 *-------------------------------------------------------------------------------
 CODE_1110:
-                MOVE.L      #0, D6
-
                 * check for memory shift/rotate
-                JSR         LOAD_CURRENT_WORD
-                ANDI.L      #$00C0, D0
-                CMP.L       #$00C0, D0
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                ANDI.L      #$00C0, D0          * isolate bits 7 and 8
+                CMP.L       #$00C0, D0          * check if memory shift/rotate
                 BEQ         MEMORY_SR
 
-                JSR         LOAD_CURRENT_WORD
+                JSR         LOAD_CURRENT_WORD   * reload instruction
                 ANDI.L      #$0018, D0          * isolate bits 4 and 5
 
                 CMP.L       #$0000, D0          * check if arithmetic shift
@@ -959,8 +840,8 @@ CODE_1110:
 
                 BRA         _1110_INVALID
 
-MEMORY_SR:      MOVE.L      #ERROR, D6
-                JSR         LOAD_CURRENT_WORD
+MEMORY_SR:      MOVE.L      #ERROR, D4          * set flag for <ea> mode only
+                JSR         LOAD_CURRENT_WORD   * reload instruction
                 ANDI.L      #$0E00, D0          * isolate bits 10-12
 
                 CMP.L       #$0000, D0          * check if arithmetic shift
@@ -974,55 +855,49 @@ MEMORY_SR:      MOVE.L      #ERROR, D6
 
                 BRA         _1110_INVALID
 
-MATCHED_LSD:    * write "LS" to buffer
-                LEA         string_ls, A1
-                JSR         WRITE_TO_BUFFER
-                BRA         LAR_NEXT
+MATCHED_LSD:    LEA         string_ls, A1       * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                BRA         LAR_DIRECTION       * get logical shift direction
 
-MATCHED_ASD:    * write "AS" to buffer
-                LEA         string_as, A1
-                JSR         WRITE_TO_BUFFER
-                BRA         LAR_NEXT
+MATCHED_ASD:    LEA         string_as, A1       * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                BRA         LAR_DIRECTION       * get arithmetic shift direction
 
-MATCHED_ROD:    * write "RO" to buffer
-                LEA         string_ro, A1
-                JSR         WRITE_TO_BUFFER
-                BRA         LAR_NEXT
+MATCHED_ROD:    LEA         string_ro, A1       * load opcode name
+                JSR         WRITE_TO_BUFFER     * write opcode name to buffer
+                BRA         LAR_DIRECTION       * get rotate direction
 
-LAR_NEXT:       * check shift/rotation direction
-                JSR         LOAD_CURRENT_WORD
-                ANDI.L      #DIR_LEFT, D0
-                CMP.L       #DIR_LEFT, D0
-                BEQ         WRITE_LEFT
-                BRA         WRITE_RIGHT
+LAR_DIRECTION:  * shift/rotation direction
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                ANDI.L      #DIR_LEFT, D0       * isolate direction bit
+                CMP.L       #DIR_LEFT, D0       * check direction bit
+                BEQ         WRITE_LEFT          * left shift/rotate
+                BRA         WRITE_RIGHT         * right shift/rotate
 
-WRITE_LEFT:     MOVE.B      #'L', (A0)+
-                BRA         SR_SIZE
+WRITE_LEFT:     MOVE.B      #'L', (A0)+         * write 'L' to buffer
+                BRA         SR_NEXT             * decode shift/rotate size
 
-WRITE_RIGHT:    MOVE.B      #'R', (A0)+
-                BRA         SR_SIZE
+WRITE_RIGHT:    MOVE.B      #'R', (A0)+         * write 'R' to buffer
+                BRA         SR_NEXT             * decode shift/rotate size
 
-SR_SIZE:        * decode size
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_SIZE_78
-                MOVE.L      D0, D7
-
-                * check if <ea> mode only
-                CMP.L       #ERROR, D6
+SR_NEXT:        * check if <ea> mode only - size set to word
+                CMP.L       #ERROR, D4          * check if <ea> mode only flag is set
                 BEQ         EA_SR_MEMORY
 
-                JSR         PAD_BUFFER
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         DECODE_SIZE_78      * decode opcode size
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
 
-                * move i/r bit in D1
-                JSR         LOAD_CURRENT_WORD
+                * move i/r bit to D1
+                JSR         LOAD_CURRENT_WORD   * reload instruction
                 ANDI.L      #$0020, D0          * isolate bit 5
-                MOVE.L      D0, D1              * save i/r bit in D1
+                MOVE.L      D0, D1              * save i/r bit to D1
 
                 * isolate count/register bits for source
                 JSR         LOAD_CURRENT_WORD   * reload instruction
-                ANDI.L      #$0E00, D0          * isolate bits 10-12
                 LSR.W       #SHIFT_6, D0        * shift right by 6
                 LSR.W       #SHIFT_3, D0        * shift right by 3
+                ANDI.L      #$0007, D0          * isolate first 3 bits
 
                 * check if i/r bit is shift/rotation is count or register
                 CMP.L       #$0000, D1
@@ -1034,9 +909,9 @@ SR_COUNT:       * decode immediate value: 1 - 8
                 BRA         SR_DST_REG          * decode destination register
 
 SR_REG:         * decode source register
-                MOVE.B      #'D', (A0)+
-                JSR         WRITE_REGISTER_NUM
-                BRA         SR_DST_REG
+                MOVE.B      #'D', (A0)+         * write 'D' to buffer
+                JSR         WRITE_REGISTER_NUM  * write register number to buffer
+                BRA         SR_DST_REG          * decode destination register
 
 SR_DST_REG:     JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         WRITE_COMMA         * write comma to buffer
@@ -1045,29 +920,29 @@ SR_DST_REG:     JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         WRITE_REGISTER_NUM  * write register number to buffer
                 BRA         _1110_RETURN        * done decoding ASd, LSd, and ROd opcodes
 
-EA_SR_MEMORY:      * opcode only takes a single operand
+EA_SR_MEMORY:   * opcode only takes a single operand
                 MOVE.L      #$40, D0            * set opcode size to word for single operand
-                JSR         DECODE_SIZE_78
-                JSR         PAD_BUFFER
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_EA
+                JSR         DECODE_SIZE_78      * decode opcode size
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         DECODE_EA           * decode single operand <ea>
 
                 * <ea> must be (An), (An)+, -(An), (xxx).W, (xxx).L
-                CMP.L       #ERROR, D0
+                CMP.L       #ERROR, D0          * check if error
                 BEQ         _1110_INVALID
 
-                CMP.L       #DN_EA, D0
+                CMP.L       #DN_EA, D0          * check if Dn
                 BEQ         _1110_INVALID
 
-                CMP.L       #AN_EA, D0
+                CMP.L       #AN_EA, D0          * check if An
                 BEQ         _1110_INVALID
 
-                CMP.L       #IMM_EA, D0
+                CMP.L       #IMM_EA, D0         * check if #<data>
                 BEQ         _1110_INVALID
 
-                BRA         _1110_RETURN
+                BRA         _1110_RETURN        * done decoding ASd, LSd, and ROd opcodes with single operand
 
-_1110_INVALID:  JSR         INVALID_OPCODE
+_1110_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
 _1110_RETURN:   RTS                             * return to caller
 
 
@@ -1079,7 +954,7 @@ _1110_RETURN:   RTS                             * return to caller
 *       This disassembler does not decode any opcodes that begins with 1111.
 *-------------------------------------------------------------------------------
 CODE_1111:
-                JSR         INVALID_OPCODE
+                JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
                 RTS                             * return to caller
 
 
@@ -1093,44 +968,39 @@ CODE_1111:
 *       (<ea>, Dn) or (Dn, <ea>).
 *
 * Return value:
-*       D0 - destination EA value
-*       D1 - source EA value
-*       D2 - direction
+*       D0 - destination <ea> value
+*       D1 - source <ea> value
+*       D2 - direction bit
+*       D3 - instruction size (BYTE_VALUE, WORD_VALUE, LONG_VALUE)
 *-------------------------------------------------------------------------------
 DECODE_DN_EA_DN_OPERANDS:
-                * print size
-                JSR         LOAD_CURRENT_WORD
-                JSR         DECODE_SIZE_78
-
-                * check if valid size was decoded
-                MOVE.L      D0, D7
-                CMP         #ERROR, D0
+                JSR         LOAD_CURRENT_WORD   * load current instruction
+                JSR         DECODE_SIZE_78      * decode opcode size
+                MOVE.L      D0, D3              * save size in D3
+                CMP         #ERROR, D0          * check if decoded valid opcode size
                 BEQ         DDEDO_INVALID
 
-                * align start of operands
-                JSR         PAD_BUFFER
-
                 * get direction (<ea> --> Dn || Dn --> <ea>)
-                JSR         LOAD_CURRENT_WORD
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
                 ANDI.W      #DN_TO_EA, D0       * isolate direction bit
                 MOVE.L      D0, D2              * save direction bit
                 CMP         #DN_TO_EA, D0       * check if Dn, <ea>
-                BEQ         OPERAND_DN_EA
+                BEQ         OPERAND_DN_EA       * decode Dn, <ea>
 
                 * decode <ea>, Dn
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         DECODE_EA           * decode source operand
-                MOVE.L      D0, D1              * save source EA to D1
-
+                MOVE.L      D0, D1              * save source <ea> to D1
                 CMP.L       #ERROR, D0          * check if it's invalid
                 BEQ         DDEDO_INVALID
 
                 * decode destination
                 JSR         LOAD_CURRENT_WORD   * reload instruction
-                JSR         WRITE_COMMA         * write ', '
-                JSR         LOAD_DST_EA         * get destination EA
+                JSR         WRITE_COMMA         * write ', ' to buffer
+                JSR         LOAD_DST_EA         * get destination <ea>
                 ANDI.L      #$07, D0            * set to Dn mode
-                JSR         DECODE_EA           * decode destination
+                JSR         DECODE_EA           * decode destination <ea>
 
                 CMP.L       #ERROR, D0          * check if it's invalid
                 BEQ         DDEDO_INVALID
@@ -1141,8 +1011,8 @@ OPERAND_DN_EA:
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         LOAD_DST_EA         * Dn is source, load it
                 ANDI.L      #$07, D0            * set to Dn mode
-                JSR         DECODE_EA           * decode
-                MOVE.L      D0, D1              * save source EA to D1
+                JSR         DECODE_EA           * decode it
+                MOVE.L      D0, D1              * save source <ea> to D1
 
                 CMP.L       #DN_EA, D0          * check if it's invalid, must be Dn
                 BNE         DDEDO_INVALID
@@ -1159,6 +1029,80 @@ OPERAND_DN_EA:
 DDEDO_INVALID:  MOVE.L      #ERROR, D0
                 MOVE.L      #ERROR, D1
 DDEDO_RETURN:   RTS                             * return to caller
+
+
+
+*-------------------------------------------------------------------------------
+* Subroutine:
+*       DECODE_DISPLACEMENT
+*
+* Description:
+*       Decodes the displacement value of the current branching instruction at
+*       start_addr in writes it to the buffer in A0. On exit, A0 will point to
+*       the last byte written to the buffer.
+*
+* Parameters:
+*       A0 - Pointer to buffer to write too.
+*-------------------------------------------------------------------------------
+DECODE_DISPLACEMENT:
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                ANDI.L      #$00FF, D0          * isolate displacement bits
+                CMP         #$0000, D0          * check if displacement is 8 or 16 bits
+                BEQ         DIS_16_BIT          * 16-bit displacement
+                BRA         DIS_8_BIT           * 8-bit displacement
+
+DIS_16_BIT:     LEA         string_word, A1     * load instruction size, word
+                JSR         WRITE_TO_BUFFER     * write instruction size to buffer
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
+
+                ADD.L       #2, inst_offset     * update instruction offset by the number of bytes in a word
+                MOVE.L      start_addr, D0      * PC
+                ADD.L       #2, D0              * PC + 2
+
+                MOVE.L      #0, D1              * clear D1 to hold displacement
+                MOVE.L      D0, A1              * move address of instruction into A1
+                MOVE.W      (A1), D1            * load displacement word
+
+                * apply displacement to PC to get location of label
+                CMP.L       #$8000, D1          * check if displacement is negative
+                BGE         NEG_16
+                BRA         POS_16
+
+NEG_16:         NEG.W       D1                  * negative displacement - negate it
+                SUB.L       D1, D0              * branch location = (PC + 2) - displacement
+                BRA         WRITE_DIS           * write displacement to buffer
+
+POS_16:         ADD         D1, D0              * branch location = (PC + 2) + displacement
+                BRA         WRITE_DIS           * write displacement to buffer
+
+DIS_8_BIT:      LEA         string_byte, A1     * load instruction size, byte
+                JSR         WRITE_TO_BUFFER     * write instruction size to buffer
+                JSR         PAD_BUFFER          * pad buffer to align start of operands
+
+                JSR         LOAD_CURRENT_WORD   * reload instruction
+                ANDI.L      #$00FF, D0          * isolate displacement bits
+                MOVE.L      D0, D1              * save displacement in D1
+
+                MOVE.L      start_addr, D0      * PC
+                ADD.L       #2, D0              * PC + 2
+
+                * apply displacement to PC to get location of label
+                CMP.L       #$0080, D1          * check if displacement is negative
+                BGE         NEG_8
+                BRA         POS_8
+
+NEG_8:          NEG.B       D1                  * negative displacement - negate it
+                SUB.L       D1, D0              * branch location = (PC + 2) - displacement
+                BRA         WRITE_DIS           * write displacement to buffer
+
+POS_8:          ADD         D1, D0              * branch location = (PC + 2) + displacement
+                BRA         WRITE_DIS           * write displacement to buffer
+
+WRITE_DIS:      JSR         LONG_TO_HEX_STRING  * convert branch label to hex string
+                LEA         long_string_buf, A1 * load converted string label value
+                MOVE.B      #'$', (A0)+         * write '$' to buffer
+                JSR         WRITE_TO_BUFFER     * write branch location to buffer
+                RTS                             * return to caller
 
 
 
@@ -1254,7 +1198,7 @@ RESET_BUFFER_AND_OFFSET:
 
 
 ********************************************************************************
-* EA subroutines
+* <ea> subroutines
 ********************************************************************************
 
 *-------------------------------------------------------------------------------
@@ -1268,9 +1212,9 @@ RESET_BUFFER_AND_OFFSET:
 *
 * Parameters:
 *       A0 - Pointer to buffer to write too.
-*       D0 - The first 6 bits of the EA to decode. It should be formatted as
+*       D0 - The first 6 bits of the <ea> to decode. It should be formatted as
 *            follows: <Mode> <Xn> --> 0000 0000 00xx xxxx
-*       D7 - The size of the current instruction. Set to #LONG_VALUE if
+*       D3 - The size of the current instruction. Set to #LONG_VALUE if
 *            instruction can take #<data> and supports long size.
 *
 * Return Value:
@@ -1289,7 +1233,7 @@ RESET_BUFFER_AND_OFFSET:
 DECODE_EA:
                 MOVEM.L     A1-A6/D1-D7, -(SP)  * save registers
                 ANDI.L      #$3F, D0            * isolate lower 6 bits
-                MOVE.L      D0, D1              * make copy of EA
+                MOVE.L      D0, D1              * make copy of <ea>
                 LEA         EA_TABLE, A1        * load address of ea jump table
                 MOVE.B      #SHIFT_3, D2        * shift 3 bits to the right
                 LSR.W       D2, D1              * isolate the 3 mode bits
@@ -1367,25 +1311,25 @@ EA_MODE_111:                                    * (xxx).W, (xxx).L, #imm
 
                 BRA         _111_ERROR          *   something went wrong
 
-EA_ABS_WORD:
+EA_ABS_WORD:                                    * (xxx).W
                 MOVE.B      #'$', (A0)+         * append '$'
                 JSR         WRITE_OFFSET_WORD   * get word from memory
                 MOVE.L      #ABSW_EA, D0        * add return value
                 BRA         _111_RETURN         * done decoding absolute word
 
-EA_ABS_LONG:
+EA_ABS_LONG:                                    * (xxx).L
                 MOVE.B      #'$', (A0)+         * append '$'
                 JSR         WRITE_OFFSET_WORD   * get the first word from memory
                 JSR         WRITE_OFFSET_WORD   * get the second word to fully decode long word
                 MOVE.L      #ABSL_EA, D0        * add return value
                 BRA         _111_RETURN         * done decoding absolute long
 
-EA_IMM_DATA:
+EA_IMM_DATA:                                    * #imm
                 MOVE.B      #'#', (A0)+         * append '#'
                 MOVE.B      #'$', (A0)+         * append '$'
                 JSR         WRITE_OFFSET_WORD   * get word from memory
 
-                CMP         #LONG_VALUE, D7
+                CMP         #LONG_VALUE, D3
                 BEQ         ADD_NEXT_WORD
                 BRA         EA_IMM_DATA_N
 
@@ -1404,8 +1348,8 @@ _111_RETURN:    RTS                             * return to caller
 *       WRITE_OFFSET_WORD
 *
 * Description:
-*       Helper subroutine for DECODE_EA that writes the word value obtained by
-*       applying inst_offset to start_addr in memory to the buffer in A0.
+*       Writes the word value obtained by applying inst_offset to start_addr in
+*       memory to the buffer in A0.
 *
 * Parameters:
 *       A0 - Pointer to buffer to write too.
@@ -1434,20 +1378,19 @@ WRITE_OFFSET_WORD:
 *       WRITE_REGISTER_NUM
 *
 * Description:
-*       Helper subroutine for DECODE_EA that writes the register number
-*       represented by the last 3 bits in in D0 to the buffer in A0.
+*       Writes the register number represented by the last 3 bits in D0 to the
+*       buffer in A0.
 *
 * Parameters:
 *       A0 - Pointer to buffer to write too.
 *       D0 - Register number to write.
 *-------------------------------------------------------------------------------
 WRITE_REGISTER_NUM:
-                MOVEM.L     D1, -(SP)           * save registers
-                MOVE.L      D0, D1              * restore EA mode
-                ANDI.L      #$7, D1             * isolate 3 register bits
-                ADD.B       #'0', D1            * convert to ASCII
-                MOVE.B      D1, (A0)+           * write register number to buffer
-                MOVEM.L     (SP)+, D1           * restore registers
+                MOVEM.L     D0, -(SP)           * save registers
+                ANDI.L      #$07, D0            * isolate 3 register bits
+                ADD.B       #'0', D0            * convert to ASCII
+                MOVE.B      D0, (A0)+           * write register number to buffer
+                MOVEM.L     (SP)+, D0           * restore registers
                 RTS                             * return to caller
 
 
@@ -1492,20 +1435,20 @@ DECODE_SIZE_78:
 
                 BRA         DS_INVALID          * something went wrong
 
-DS_BYTE:        LEA         string_byte, A1
-                JSR         WRITE_TO_BUFFER
-                MOVE.L      #BYTE_VALUE, D0
-                BRA         DS_RETURN
+DS_BYTE:        LEA         string_byte, A1     * load byte size string
+                JSR         WRITE_TO_BUFFER     * write byte size to buffer
+                MOVE.L      #BYTE_VALUE, D0     * load return value
+                BRA         DS_RETURN           * return to caller
 
-DS_WORD:        LEA         string_word, A1
-                JSR         WRITE_TO_BUFFER
-                MOVE.L      #WORD_VALUE, D0
-                BRA         DS_RETURN
+DS_WORD:        LEA         string_word, A1     * load word size string
+                JSR         WRITE_TO_BUFFER     * write word size to buffer
+                MOVE.L      #WORD_VALUE, D0     * load return value
+                BRA         DS_RETURN           * return to caller
 
-DS_LONG:        LEA         string_long, A1
-                JSR         WRITE_TO_BUFFER
-                MOVE.L      #LONG_VALUE, D0
-                BRA         DS_RETURN
+DS_LONG:        LEA         string_long, A1     * load long size string
+                JSR         WRITE_TO_BUFFER     * write long size to buffer
+                MOVE.L      #LONG_VALUE, D0     * load return value
+                BRA         DS_RETURN           * return to caller
 
 DS_INVALID:     MOVE.L      #ERROR, D0          * add return value
 DS_RETURN:      MOVEM.L     (SP)+, A1           * restore registers
@@ -1584,17 +1527,16 @@ QUICK_WRITE:    MOVE.B      #'#', (A0)+         * write '#'' to buffer
 *       LOAD_DST_EA
 *
 * Description:
-*       Swaps destination EA with source EA for the instruction in D0. The
-*       destination EA, bits 6 - 11, will be swapped with the source EA, bits
-*       0 - 5. After swapping the destination and source EA, the destination
-*       Mode and Xn bits are swapped so they fall in the following format:
-*           <Mode> <Xn>
+*       Swaps destination <ea> with source <ea> for the instruction in D0. The
+*       destination <ea>, bits 7 - 13, will be swapped with the source <ea>,
+*       bits 1 - 6. After swapping the <ea>, the destination Mode and Xn bits
+*       will be in the  the following format: <Mode> <Xn>
 *
 * Parameters:
-*       D0 - Instruction to load destination EA of.
+*       D0 - Instruction to load destination <ea> of.
 *
 * Return Value:
-*       D0 - The destination EA of the instruction where the first three bits
+*       D0 - The destination <ea> of the instruction where the first three bits
 *            represent the <Xn> and the next three the <Mode>.
 *-------------------------------------------------------------------------------
 LOAD_DST_EA:
@@ -2137,7 +2079,7 @@ CLEAR_REGISTERS:
 *-------------------------------------------------------------------------------
 * text section
 *-------------------------------------------------------------------------------
-                ORG         TEXT_SEC
+                ORG         TEXT_SECTION
 
 * -------------- variables -----------------------------------------------------
 start_addr      DC.L        $0          * address of instruction to disassemble
