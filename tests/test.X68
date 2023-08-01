@@ -7,7 +7,7 @@
 WORD        EQU         $FFFFFFFA
 LONG        EQU         $0000FFFA
 
-START:      ORG         $00004000
+START:      ORG         $00004000         * change me
 
             * first test for group 9 - testing positive displacement
             NOP
@@ -132,7 +132,7 @@ START:      ORG         $00004000
             MOVE.W      WORD, $1234568
 
             NOP
-            MOVE.W      LONG, D0       * (xxx).L
+            MOVE.W      LONG, D0            * (xxx).L
             MOVE.W      LONG, (A0)
             MOVE.W      LONG, (A1)+
             MOVE.W      LONG, -(A2)
@@ -192,7 +192,7 @@ START:      ORG         $00004000
             MOVE.L      WORD, $1234568
 
             NOP
-            MOVE.L      LONG, D0       * (xxx).L
+            MOVE.L      LONG, D0           * (xxx).L
             MOVE.L      LONG, (A0)
             MOVE.L      LONG, (A1)+
             MOVE.L      LONG, -(A2)
@@ -200,11 +200,11 @@ START:      ORG         $00004000
             MOVE.L      LONG, $12345678
 
             NOP
-            MOVE.L      #$FF00, D0            * #<data>
-            MOVE.L      #$0000, (A0)
-            MOVE.L      #$AA00, (A1)+
-            MOVE.L      #$AA00, -(A2)
-            MOVE.L      #$FF00, $1234
+            MOVE.L      #$AAFF00, D0       * #<data>
+            MOVE.L      #$BB0000, (A0)
+            MOVE.L      #$CCAA00, (A1)+
+            MOVE.L      #$DDAA00, -(A2)
+            MOVE.L      #$EEFF00, $1234
             MOVE.L      #$1100, $12345678
 
 
@@ -234,6 +234,8 @@ START:      ORG         $00004000
             MOVEA.W     $FFFFFFFF, A6
             MOVEA.W     #$0000FFFF, A7
             MOVEA.W     #$FFFFFFFF, SP
+            MOVEA.W     #LONG, SP
+            MOVEA.W     #WORD, SP
 
 
             *-------------------------------------------------------------------
@@ -250,7 +252,8 @@ START:      ORG         $00004000
             MOVEA.L     $FFFFFFFF, A6
             MOVEA.L     #$0000FFFF, A7
             MOVEA.L     #$FFFFFFFF, SP
-
+            MOVEA.L     #LONG, SP
+            MOVEA.L     #WORD, SP
 
 *--------------------------------- GROUP 3 ADD ---------------------------------
 ********************************************************************************
@@ -635,7 +638,7 @@ lea_test    DC.W        $0
 
 *----------------------------- GROUP 7 LSL, LSR, ASL, ASR ----------------------
 ********************************************************************************
-*  LSL, LSR:                                                                   *
+*  LSL, LSR: ALL PASSED                                                        *
 ********************************************************************************
             *-------------------------------------------------------------------
             *-------------------------------- LSL ------------------------------
@@ -654,7 +657,7 @@ lea_test    DC.W        $0
             LSL.W      D2, D3
             LSL.L      #4, D5
             LSL.L      D6, D7
-            
+
             NOP
             NOP
             LSL         (A1)
@@ -691,7 +694,7 @@ lea_test    DC.W        $0
             LSR         WORD
             LSR         LONG
 ********************************************************************************
-*  ASL, ASR:                                                                   *
+*  ASL, ASR: ALL PASSED                                                        *
 ********************************************************************************
             *-------------------------------------------------------------------
             *-------------------------------- ASL ------------------------------
@@ -710,7 +713,7 @@ lea_test    DC.W        $0
             ASL.W      D2, D3
             ASL.L      #4, D5
             ASL.L      D6, D7
-            
+
             NOP
             NOP
             ASL         (A1)
@@ -746,9 +749,9 @@ lea_test    DC.W        $0
             ASR        -(A2)
             ASR        WORD
             ASR        LONG
-*----------------------------- GROUP 8 ROL, ROR ------------------------------
+*----------------------------- GROUP 8 ROL, ROR --------------------------------
 ********************************************************************************
-*  ROL, ROR:                                                                   *
+*  ROL, ROR: ALL PASSED                                                        *
 ********************************************************************************
             *-------------------------------------------------------------------
             *-------------------------------- ROL ------------------------------
@@ -767,7 +770,7 @@ lea_test    DC.W        $0
             ROL.W      D2, D3
             ROL.L      #4, D5
             ROL.L      D6, D7
-            
+
             NOP
             NOP
             ROL         (A1)
@@ -779,7 +782,6 @@ lea_test    DC.W        $0
             *-------------------------------------------------------------------
             *-------------------------------- ROR ------------------------------
             *-------------------------------------------------------------------
-
             NOP
             NOP
             ROR.B      #1, D0
@@ -804,7 +806,7 @@ lea_test    DC.W        $0
             ROR        WORD
             ROR        LONG
 
-*------------------------------ GROUP 9 Bcc/BRA --------------------------------
+*------------------------------ GROUP 9.1 Bcc/BRA ------------------------------
 ********************************************************************************
 *  Bcc/BRA:                                                                    *
 ********************************************************************************
@@ -813,66 +815,94 @@ lea_test    DC.W        $0
             *-------------------------------------------------------------------
 BCC_START:  NOP
             NOP
-            JSR     START               * use JSR to validate branch label value
-            BGT     START
-            BLE     START
-            BEQ     START
-            BRA     START
-            JSR     START               * use JSR to validate branch label value
+            JSR        START               * use JSR to validate branch label value
+            BGT        START
+            BLE        START
+            BEQ        START
+            BRA        START
+            JSR        START               * use JSR to validate branch label value
 
             NOP
-            JSR     BCC_START           * use JSR to validate branch label value
-            BGT     BCC_START
-            BLE     BCC_START
-            BEQ     BCC_START
-            BRA     BCC_START
-            JSR     BCC_START           * use JSR to validate branch label value
+            JSR        BCC_START           * use JSR to validate branch label value
+            BGT        BCC_START
+            BLE        BCC_START
+            BEQ        BCC_START
+            BRA        BCC_START
+            JSR        BCC_START           * use JSR to validate branch label value
 
             NOP
-            JSR     BCC_END             * use JSR to validate branch label value
-            BGT     BCC_END
-            BLE     BCC_END
-            BEQ     BCC_END
-            BRA     BCC_END
-            JSR     BCC_END             * use JSR to validate branch label value
+            JSR        BCC_END             * use JSR to validate branch label value
+            BGT        BCC_END
+            BLE        BCC_END
+            BEQ        BCC_END
+            BRA        BCC_END
+            JSR        BCC_END             * use JSR to validate branch label value
 
             NOP
-            JSR     JSR_END             * use JSR to validate branch label value
-            BGT     JSR_END
-            BLE     JSR_END
-            BEQ     JSR_END
-            BRA     JSR_END
-BCC_END:    JSR     JSR_END             * use JSR to validate branch label value
+            JSR        JSR_END             * use JSR to validate branch label value
+            BGT        JSR_END
+            BLE        JSR_END
+            BEQ        JSR_END
+            BRA        JSR_END
+BCC_END:    JSR        JSR_END             * use JSR to validate branch label value
 
+L0          DC.W       $0
+L1          BGT.B      L0
+L2          BLE.B      L1
+L3          BEQ.B      L2
+L4          BRA.B      L3
+
+L5          BGT.B      L10
+L6          BLE.B      L11
+L7          BEQ.B      L12
+L8          BRA.B      L13
+
+L10         DC.W       $0
+L11         DC.W       $0
+L12         DC.W       $0
+L13         DC.W       $0
+
+            NOP
+            NOP
+            JSR        L0
+            JSR        L1
+            JSR        L2
+            JSR        L3
+            JSR        L10
+            JSR        L11
+            JSR        L12
+            JSR        L13
+            NOP
+            NOP
 
 
 *------------------------------ GROUP 10 JSR/RTS -------------------------------
 ********************************************************************************
-*  JSR/RTS:                                                                    *
+*  JSR/RTS: ALL PASSED                                                         *
 ********************************************************************************
             *-------------------------------------------------------------------
             *----------------------------- JSR/RTS -----------------------------
             *-------------------------------------------------------------------
 JSR_START:  NOP
             NOP
-            JSR     START
+            JSR        START
             RTS
-            JSR     BCC_START
+            JSR        BCC_START
             RTS
-            JSR     BCC_END
+            JSR        BCC_END
             RTS
-            JSR     JSR_START
+            JSR        JSR_START
             RTS
-            JSR     JSR_END
+            JSR        JSR_END
 
             NOP
             NOP
-            JSR     (A0)
-            JSR     (A1)
-            JSR     (A2)
-            JSR     (A3)
-            JSR     WORD
-            JSR     LONG
+            JSR        (A0)
+            JSR        (A1)
+            JSR        (A2)
+            JSR        (A3)
+            JSR        WORD
+            JSR        LONG
 JSR_END:    RTS
 
 
