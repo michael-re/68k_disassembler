@@ -24,25 +24,25 @@ SHIFT_1         EQU         1
 ERROR           EQU        -1
 
 * <ea> values
-DN_EA           EQU         1
-AN_EA           EQU         2
-ANI_EA          EQU         3
-ANIPI_EA        EQU         4
-ANIPD_EA        EQU         5
-ABSW_EA         EQU         6
-ABSL_EA         EQU         7
-IMM_EA          EQU         8
+DN_EA           EQU         1                   * Dn
+AN_EA           EQU         2                   * An
+ANI_EA          EQU         3                   * (An)
+ANIPI_EA        EQU         4                   * (An)+
+ANIPD_EA        EQU         5                   * -(An)
+ABSW_EA         EQU         6                   * (xxx).W
+ABSL_EA         EQU         7                   * (xxx).L
+IMM_EA          EQU         8                   * #<data>
 
 * size values
-BYTE_VALUE      EQU         1
-WORD_VALUE      EQU         2
-LONG_VALUE      EQU         3
+BYTE_VALUE      EQU         1                   * .B
+WORD_VALUE      EQU         2                   * .W
+LONG_VALUE      EQU         3                   * .L
 
 * directions
-DN_TO_EA        EQU         $0100
-DIR_LEFT        EQU         $0100
+DN_TO_EA        EQU         $0100               * Dn, <ea>
+DIR_LEFT        EQU         $0100               * L (ASL, LSL, ROL)
 
-START:          ORG         CODE_SECTION
+START:          ORG         CODE_SECTION        * program ORG'ed at $1000.
                 LEA         welcome_msg, A1     * load welcome message
                 JSR         PRINT_STRING_LN     * print welcome message
 
@@ -241,14 +241,14 @@ DECODE_MOVE_EA: JSR         WRITE_TO_BUFFER     * write opcode name to buffer
                 JSR         LOAD_DST_EA         * load destination mode and reg
                 JSR         DECODE_EA           * get destination <ea>
 
-                * check destination <ea>, MOVE supports all but An and #imm
+                * check destination <ea>, MOVE supports all but An and #<data>
                 CMP         #ERROR, D0          * check for invalid <ea>
                 BEQ         _0001_INVALID
 
                 CMP         #AN_EA, D0          * check for An
                 BEQ         _0001_INVALID
 
-                CMP         #IMM_EA, D0         * check for #imm
+                CMP         #IMM_EA, D0         * check for #<data>
                 BEQ         _0001_INVALID
 
                 BRA         _0001_RETURN        * done decoding MOVE
@@ -370,8 +370,7 @@ CODE_0100:
                 BEQ         MATCHED_RTS         * decode RTS
 
                 * check if instruction is JSR
-                MOVE.B      #SHIFT_6, D1        * shift 6 bits to the right
-                LSR.W       D1, D0              * isolate bits 15 - 6
+                LSR.W       #SHIFT_6, D0        * isolate bits 7 - 16
                 CMP         #$13A, D0           * compare against JSR
                 BEQ         MATCHED_JSR         * decode JSR
 
@@ -382,8 +381,7 @@ CODE_0100:
 
                 * check if instruction is NOT
                 JSR         LOAD_CURRENT_WORD   * load current instruction
-                MOVE.B      #SHIFT_8, D1        * shift 8 bits to the right
-                LSR.W       D1, D0              * isolate bits 15 - 8
+                LSR.W       #SHIFT_8, D0        * isolate bits 8 - 16
                 CMP         #$46, D0            * check against NOT
                 BEQ         MATCHED_NOT         * decode NOT
 
@@ -415,14 +413,14 @@ MATCHED_NOT:    * decode NOT
                 JSR         LOAD_CURRENT_WORD   * reload instruction
                 JSR         DECODE_EA           * get addressing mode
 
-                * NOT supports all <ea> except An and #imm
+                * NOT supports all <ea> except An and #<data>
                 CMP.L       #ERROR, D0          * invalid addressing mode
                 BEQ         _0100_INVALID
 
                 CMP.L       #AN_EA, D0          * does not support An
                 BEQ         _0100_INVALID
 
-                CMP.L       #IMM_EA, D0         * does not support #imm
+                CMP.L       #IMM_EA, D0         * does not support #<data>
                 BEQ         _0100_INVALID
 
                 BRA _0100_RETURN                * done decoding NOT
@@ -958,7 +956,6 @@ CODE_1111:
                 RTS                             * return to caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       DECODE_DN_EA_DN_OPERANDS
@@ -1029,7 +1026,6 @@ OPERAND_DN_EA:
 DDEDO_INVALID:  MOVE.L      #ERROR, D0
                 MOVE.L      #ERROR, D1
 DDEDO_RETURN:   RTS                             * return to caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -1105,7 +1101,6 @@ WRITE_DIS:      JSR         LONG_TO_HEX_STRING  * convert branch label to hex st
                 RTS                             * return to caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       INVALID_OPCODE
@@ -1135,7 +1130,6 @@ INVALID_OPCODE:
                 RTS                             * return to the caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       LOAD_CURRENT_WORD
@@ -1154,7 +1148,6 @@ LOAD_CURRENT_WORD:
                 MOVE.W      (A0), D0            * load in word data at start_addr
                 MOVEM.L     (SP)+, A0           * restore registers
                 RTS                             * return to the caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -1224,11 +1217,11 @@ RESET_BUFFER_AND_OFFSET:
 *               DN_EA:    Dn     - data register direct
 *               AN_EA:    An     - address register direct
 *               ANI_EA:   (An)   - address register indirect
-*               ANIPI_EA: (An)+  - address register indirect with post incrementing
-*               ANIPD_EA: -(An)  - address register indirect with pre decrementing
+*               ANIPI_EA: (An)+  - address register indirect with post increment
+*               ANIPD_EA: -(An)  - address register indirect with pre decrement
 *               ABSW_EA: (xxx).W - absolute word address
 *               ABSL_EA: (xxx).L - absolute long address
-*               IMM_EA:  #imm    - immediate data
+*               IMM_EA:  #<data> - immediate data
 *-------------------------------------------------------------------------------
 DECODE_EA:
                 MOVEM.L     A1-A6/D1-D7, -(SP)  * save registers
@@ -1299,7 +1292,7 @@ EA_MODE_110:                                    * --- unsupported ---
                 MOVE.L      #ERROR, D0          * invalid addressing mode
                 RTS                             * return to caller
 
-EA_MODE_111:                                    * (xxx).W, (xxx).L, #imm
+EA_MODE_111:                                    * (xxx).W, (xxx).L, #<data>
                 CMP.L       #$38, D0            * check if absolute word addressing
                 BEQ         EA_ABS_WORD
 
@@ -1309,7 +1302,7 @@ EA_MODE_111:                                    * (xxx).W, (xxx).L, #imm
                 CMP.L       #$3C, D0            * check if immediate data
                 BEQ         EA_IMM_DATA
 
-                BRA         _111_ERROR          *   something went wrong
+                BRA         _111_ERROR          * something went wrong
 
 EA_ABS_WORD:                                    * (xxx).W
                 MOVE.B      #'$', (A0)+         * append '$'
@@ -1324,7 +1317,7 @@ EA_ABS_LONG:                                    * (xxx).L
                 MOVE.L      #ABSL_EA, D0        * add return value
                 BRA         _111_RETURN         * done decoding absolute long
 
-EA_IMM_DATA:                                    * #imm
+EA_IMM_DATA:                                    * #<data>
                 MOVE.B      #'#', (A0)+         * append '#'
                 MOVE.B      #'$', (A0)+         * append '$'
                 JSR         WRITE_OFFSET_WORD   * get word from memory
@@ -1339,8 +1332,6 @@ EA_IMM_DATA_N:  MOVE.L      #IMM_EA, D0         * add return value
 
 _111_ERROR:     MOVE.L      #ERROR, D0          * invalid addressing mode
 _111_RETURN:    RTS                             * return to caller
-
-
 
 
 *-------------------------------------------------------------------------------
@@ -1372,7 +1363,6 @@ WRITE_OFFSET_WORD:
                 RTS                             * return to caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       WRITE_REGISTER_NUM
@@ -1392,7 +1382,6 @@ WRITE_REGISTER_NUM:
                 MOVE.B      D0, (A0)+           * write register number to buffer
                 MOVEM.L     (SP)+, D0           * restore registers
                 RTS                             * return to caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -1455,7 +1444,6 @@ DS_RETURN:      MOVEM.L     (SP)+, A1           * restore registers
                 RTS                             * return to caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       DECODE_SIZE_9
@@ -1484,7 +1472,6 @@ DECODE_SIZE_9:
                 BEQ         DS_WORD             * return word
                 BRA         DS_LONG             * return long
                 RTS                             * return to caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -1516,9 +1503,6 @@ QUICK_WRITE:    MOVE.B      #'#', (A0)+         * write '#'' to buffer
                 JSR         WRITE_TO_BUFFER     * write value to buffer
                 MOVEM.L     (SP)+, A1           * restore registers
                 RTS                             * return to caller
-
-
-
 
 
 
@@ -1557,7 +1541,6 @@ LOAD_DST_EA:
 
                 MOVEM.L     (SP)+, D1           * restore registers
                 RTS                             * return to caller
-
 
 
 
@@ -1636,8 +1619,6 @@ STN_RETURN:     MOVEM.L     (SP)+, A1/D2        * restore registers
                 RTS                             * return to the caller
 
 
-
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       LONG_TO_HEX_STRING
@@ -1674,8 +1655,6 @@ LTS_STORE:      MOVE.B      D2, -(A1)           * write hex character to buffer
 
                 MOVEM.L     (SP)+, A1/D0-D2     * restore registers
                 RTS                             * return to the caller
-
-
 
 
 *-------------------------------------------------------------------------------
@@ -1715,8 +1694,6 @@ WTS_STORE:      MOVE.B      D2, -(A1)           * write hex character to buffer
 
                 MOVEM.L     (SP)+, A1/D0-D2     * restore registers
                 RTS                             * return to the caller
-
-
 
 
 
@@ -1780,7 +1757,6 @@ RETURN_INPUT:   MOVEM.L     (SP)+, A1/D1        * restore registers
                 RTS                             * return to the caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       RESTART_PROMPT
@@ -1815,7 +1791,6 @@ RESTART_PROMPT:
                 BRA         RESTART_PROMPT
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       READ_STRING
@@ -1827,7 +1802,8 @@ RESTART_PROMPT:
 *
 * Return Value:
 *       D1.W - Length of string read from the user.
-*       A1   - Pointer to the null-terminated string (input_buffer) read from the user.
+*       A1   - Pointer to the null-terminated string (input_buffer) read from
+*              the user.
 *-------------------------------------------------------------------------------
 READ_STRING:
                 MOVEM.L     D0, -(SP)           * save registers
@@ -1838,7 +1814,6 @@ READ_STRING:
                 TRAP        #15                 * make system call
                 MOVEM.L     (SP)+, D0           * restore registers
                 RTS                             * return to caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -1859,7 +1834,6 @@ READ_CHAR:
                 RTS                             * return to caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       PRINT_STRING
@@ -1868,8 +1842,8 @@ READ_CHAR:
 *       Prints a null-terminated string to the console.
 *
 * Parameters:
-*       A1 - Pointer to the null-terminated string to print. If the string is not
-*            null-terminated, the program will crash.
+*       A1 - Pointer to the null-terminated string to print. If the string is
+*            not null-terminated, the program will crash.
 *-------------------------------------------------------------------------------
 PRINT_STRING:
                 MOVEM.L     D0, -(SP)           * save registers
@@ -1877,7 +1851,6 @@ PRINT_STRING:
                 TRAP        #15                 * make system call
                 MOVEM.L     (SP)+, D0           * restore registers
                 RTS                             * return to caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -1895,13 +1868,12 @@ PRINT_NEWLINE:
                 RTS                             * return to caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       PRINT_STRING_LN
 *
 * Description:
-*       Prints a null-terminated string to the console followed by an empty line.
+*       Prints null-terminated string to the console followed by an empty line.
 *
 * Parameters:
 *       A1 - Pointer to the null-terminated string to print.
@@ -1910,7 +1882,6 @@ PRINT_STRING_LN:
                 JSR         PRINT_STRING        * print the string in A1
                 JSR         PRINT_NEWLINE       * print empty line
                 RTS                             * return to caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -1929,7 +1900,6 @@ CLEAR_SCREEN:
                 RTS                             * return to caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       WRITE_COMMA
@@ -1944,7 +1914,6 @@ WRITE_COMMA:
             MOVE.B          #',', (A0)+         * append comma
             MOVE.B          #' ', (A0)+         * append white space
             RTS                                 * return to caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -1971,7 +1940,6 @@ PAD_SKIP        ADD         #1, A0              * increment to the next byte
                 RTS                             * return to caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       CLEAR_INPUT_BUFFER
@@ -1989,7 +1957,6 @@ CIB_CLEAR:      CLR.L       (A0)+               * clear the byte and increment A
                 RTS                             * return to caller
 
 
-
 *-------------------------------------------------------------------------------
 * Subroutine:
 *       CLEAR_OUTPUT_BUFFER
@@ -2005,7 +1972,6 @@ COB_CLEAR:      CLR.L       (A0)+               * clear the byte and increment A
                 DBF         D0, COB_CLEAR       * decrement D0 and loop until it becomes zero
                 MOVEM.L     (SP)+, A0/D0        * restore registers
                 RTS                             * return to caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -2029,7 +1995,6 @@ WTB_LOOP:       MOVE.B      (A1)+, D0           * load character from string
 
 WTB_END:        MOVEM.L     (SP)+, A1/D0        * restore registers
                 RTS                             * return to caller
-
 
 
 *-------------------------------------------------------------------------------
@@ -2057,8 +2022,6 @@ CLEAR_REGISTERS:
                 MOVE.L      #0, A5
                 MOVE.L      #0, A6
                 RTS                             * return to caller
-
-
 
 
 *-------------------------------------------------------------------------------
