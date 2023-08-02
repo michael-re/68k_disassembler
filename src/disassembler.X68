@@ -209,7 +209,7 @@ OPCODE_TABLE:
 *       CODE_0000
 *
 * Description:
-*       This disassembler does not decode any opcodes that begins with 0000.
+*       This disassembler does not decode any opcodes that begin with 0000.
 *-------------------------------------------------------------------------------
 CODE_0000:
                 JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
@@ -343,7 +343,7 @@ CODE_0011:
 MATCHED_MOVEAW: LEA         string_moveaw, A1   * load opcode name
                 JMP         DECODE_MOVEA_EA     * decode source and destination operands
 
-_0011_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+_0011_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _0011_RETURN:   RTS                             * return to caller
 
 
@@ -386,7 +386,7 @@ CODE_0100:
                 BEQ         MATCHED_NOT         * decode NOT
 
                 * couldn't decode word to valid instruction
-_0100_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+_0100_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
                 BRA         _0100_RETURN        * return to caller
 
 MATCHED_NOP:    * decode NOP
@@ -520,7 +520,7 @@ CODE_0101:
 
                 BRA         _0101_RETURN        * done decoding ADDQ
 
-_0101_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+_0101_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _0101_RETURN:   RTS                             * return to caller
 
 
@@ -575,7 +575,7 @@ MATCHED_BEQ:    * decode BEQ
                 JSR         WRITE_TO_BUFFER     * write opcode name to buffer
                 JMP         DECODE_DISPLACEMENT * decode displacement
 
-_0110_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+_0110_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _0110_RETURN:   RTS                             * return to caller
 
 
@@ -615,7 +615,7 @@ CODE_0111:
                 JSR         WRITE_REGISTER_NUM  * write register number to buffer
                 BRA         _0111_RETURN        * done decoding MOVEQ
 
-_0111_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+_0111_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _0111_RETURN:   RTS                             * return to caller
 
 
@@ -673,7 +673,7 @@ DNEA_DN_AN_IMM_CHECK:
 
                 BRA         _1000_RETURN
 
-_1000_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+_1000_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _1000_RETURN:   RTS                             * return to caller
 
 
@@ -714,7 +714,7 @@ SUB_PATTERN:    JSR         DECODE_DN_EA_DN_OPERANDS
 VALIDATE_ANB:   CMP         #BYTE_VALUE, D3     * make sure opcode is not byte-sized
                 BNE         _1001_RETURN
 
-_1001_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+_1001_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _1001_RETURN:   RTS                             * return to caller
 
 
@@ -723,10 +723,10 @@ _1001_RETURN:   RTS                             * return to caller
 *       CODE_1010
 *
 * Description:
-*       This disassembler does not decode any opcodes that begins with 1010.
+*       This disassembler does not decode any opcodes that begin with 1010.
 *-------------------------------------------------------------------------------
 CODE_1010:
-                JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+                JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
                 RTS                             * return to caller
 
 
@@ -735,10 +735,10 @@ CODE_1010:
 *       CODE_1011
 *
 * Description:
-*       This disassembler does not decode any opcodes that begins with 1011.
+*       This disassembler does not decode any opcodes that begin with 1011.
 *-------------------------------------------------------------------------------
 CODE_1011:
-                JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+                JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
                 RTS                             * return to caller
 
 
@@ -754,7 +754,7 @@ CODE_1100:
                 LEA         string_and, A1      * load opcode name
                 JSR         WRITE_TO_BUFFER     * write opcode name to buffer
                 JMP         OR_OPERANDS         * AND has the same pattern as OR
-                JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+                JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
                 RTS                             * return to caller
 
 
@@ -800,7 +800,7 @@ MATCHED_ADDA:   * decode ADDA
                 JSR         DECODE_EA           * decode destination <ea>
                 BRA         _1101_RETURN
 
-_1101_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+_1101_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _1101_RETURN:   RTS                             * return to caller
 
 
@@ -940,7 +940,7 @@ EA_SR_MEMORY:   * opcode only takes a single operand
 
                 BRA         _1110_RETURN        * done decoding ASd, LSd, and ROd opcodes with single operand
 
-_1110_INVALID:  JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+_1110_INVALID:  JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
 _1110_RETURN:   RTS                             * return to caller
 
 
@@ -949,10 +949,10 @@ _1110_RETURN:   RTS                             * return to caller
 *       CODE_1111
 *
 * Description:
-*       This disassembler does not decode any opcodes that begins with 1111.
+*       This disassembler does not decode any opcodes that begin with 1111.
 *-------------------------------------------------------------------------------
 CODE_1111:
-                JSR         INVALID_OPCODE      * filler buffer with "DATA $WXYZ"
+                JSR         INVALID_OPCODE      * fill buffer with "DATA $WXYZ"
                 RTS                             * return to caller
 
 
