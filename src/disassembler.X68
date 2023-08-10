@@ -10,7 +10,7 @@ HT              EQU         $00000009           * horizontal tab
 STACK           EQU         $0000A000           * start of stack
 MIN_ADDRESS     EQU         $00000000           * lowest accepted address
 MAX_ADDRESS     EQU         $00FFFFFF           * highest accepted address (24-bit total address space)
-BUFFER_SIZE     EQU         $00000016           * number of words in buffer - 22
+BUFFER_SIZE     EQU         $00000016           * number of long words in buffer - 22
 CODE_SECTION    EQU         $00001000           * beginning of code section - 0x1000
 TEXT_SECTION    EQU         $00006000           * beginning of text section - 0x6000
 
