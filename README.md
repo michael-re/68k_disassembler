@@ -1,96 +1,101 @@
 # 68K Disassembler
 
-## Project Specification
+## Description
 
-1. Write an inverse assembler (disassembler) that will convert a memory image of
-   instructions and data back to 68000 assembly language and output the
-   disassembled code to the display. You will not be required to disassemble
-   all of the instructions and addressing modes.
+This project implements an inverse assembler for the 68000 assembly language.
+The disassembler takes in a range of addresses to scan in memory and converts
+the memory image of instruction and data into the corresponding 68000 assembly
+language.
 
-    **`Required Effective Addressing modes`**
+The disassembler is designed to run on the Sim68K I/O console provided with the
+[**`EASy68K`**](http://www.easy68k.com/) Editor/Assembler. It supports a subset
+of opcodes and effective addressing modes, as listed below.
 
-    | **Effective Addressing Modes**                   | **Format** | **Mode** | **Xn** |
-    |--------------------------------------------------|------------|----------|--------|
-    | Data Register Direct                             | `Dn`       | `000`    | `reg`  |
-    | Address Register Direct                          | `An`       | `001`    | `reg`  |
-    | Address Register Indirect                        | `(An)`     | `010`    | `reg`  |
-    | Address Register Indirect with Post incrementing | `(An)+`    | `011`    | `reg`  |
-    | Address Register Indirect with Pre decrementing  | `-(An)`    | `100`    | `reg`  |
-    | Absolute Word Address                            | `(xxx).W`  | `111`    | `000`  |
-    | Absolute Long Address                            | `(xxx).L`  | `111`    | `001`  |
-    | Immediate Data                                   | `#imm`     | `111`    | `100`  |
+| **Opcode**                  |
+|-----------------------------|
+| NOP                         |
+| MOVE, MOVEQ, MOVEA          |
+| ADD, ADDA, ADDQ             |
+| SUB                         |
+| LEA                         |
+| AND, OR, NOT                |
+| LSL, LSR, ASL, ASR          |
+| ROL, ROR                    |
+| Bcc (BGT, BLE, BEQ)         |
+| JSR, RTS                    |
+| BRA                         |
 
-    **`Required Opcodes`**
+| **Effective Addressing Modes**                   | **Format** | **Mode** | **Xn** |
+|--------------------------------------------------|------------|----------|--------|
+| Data Register Direct                             | `Dn`       | `000`    | `reg`  |
+| Address Register Direct                          | `An`       | `001`    | `reg`  |
+| Address Register Indirect                        | `(An)`     | `010`    | `reg`  |
+| Address Register Indirect with Post incrementing | `(An)+`    | `011`    | `reg`  |
+| Address Register Indirect with Pre decrementing  | `-(An)`    | `100`    | `reg`  |
+| Absolute Word Address                            | `(xxx).W`  | `111`    | `000`  |
+| Absolute Long Address                            | `(xxx).L`  | `111`    | `001`  |
+| Immediate Data                                   | `#imm`     | `111`    | `100`  |
 
-    | **Opcode**                  |
-    |-----------------------------|
-    | NOP                         |
-    | MOVE, MOVEQ, MOVEA          |
-    | ADD, ADDA, ADDQ             |
-    | SUB                         |
-    | LEA                         |
-    | AND, OR, NOT                |
-    | LSL, LSR, ASL, ASR          |
-    | ROL, ROR                    |
-    | Bcc (BGT, BLE, BEQ)         |
-    | JSR, RTS                    |
-    | BRA                         |
+Upon startup, it prompts users for the starting and ending memory addresses in
+hexadecimal format and facilitates navigation through the disassembled code
+using the `ENTER` key. After completing the disassembly, the program prompts
+users to either disassemble another memory image or quit.
 
-2. If you want to see how a disassembler works, just take one of your homework
-   problems and load it in memory at an address after your program. Then open a
-   memory window and see the code in memory. You can also view it as
-   disassembled code in the simulator.
+The program gracefully handles illegal instructions (data) by displaying them as
+`DATA $WXYZ`, where `$WXYZ` represents the undecodable data. 
 
-3. **DO NOT USE THE TRAP FUNCTION 60 FACILITY OF THE SIMULATOR.** You must
-   completely develop your own disassembler algorithm. You can only use the
-   simulator's text I/O function, Trap Function 15, and you can only use tasks
-   with ID 0 to 14 of Trap Function 15. Task 15 and higher of Trap Function 15
-   cannot be used. Please check the available tasks of
-   [`Trap Function 15`](http://www.easy68k.com/QuickStart/TrapTasks.htm).
+```assembly
+1000          DATA      $WXYZ
+```
 
-4. Your program should be ORG'ed at $1000.
+Address displacements or offsets are appropriately displayed in the disassembled
+code as the absolute address value of the branch, not the branch displacement
+value.
 
-5. At startup, the program should display whatever welcome messages you want to
-   display and then prompt the user for the starting location and the ending
-   location (in hexadecimal format) of the code to be disassembled. You need to
-   clearly specify the expected input format for user inputs. If it's not
-   clearly specified, then any encountered problems will get your points off.
-   The program should scan the memory region and output the memory addresses of
-   the instructions and the assembly language instructions contained in that
-   region to the display. You should be able to actually disassemble your own
-   program to the display! DO NOT embed test code into your disassembler code!
+```assembly
+1000          BRA       993         * branch to address 993
+```
 
-6. The display should show one screen of data at a time, hitting the ENTER key
-   should display the next screen of information.
+The disassembler provides a clear line-by-line disassembly. It's formatted to
+show the memory location, opcode, and operand of each word it disassembles.
 
-7. The program should be able to realize when it has an illegal instruction
-   (i.e., data) and be able to deal with it until it can find instructions
-   again to decode. Instructions that cannot be decoded, either because
-   they do not disassemble as op codes or because you aren't able to decode
-   them should be displayed as:
+```assembly
+a - memory location            b - opcode            c - operand
+```
 
-    ```assembly
-    1000          DATA      $WXYZ
-    ```
+## Design Philosophy
 
-    where $WXYZ is the hexadecimal number that couldn't be decoded. Your
-    program should not crash because it can't decode an instruction. Remember,
-    it is perfectly legal to have data and instructions interspersed, so it is
-    very possible that you will hit data, and not an instruction.
+The implementation of the disassembler follows a modular design philosophy,
+with three main components:
 
-8. Address displacements or offsets should be properly displayed as the address
-   of the branch and display that value. It's the absolute address value, not
-   the displacement value. For example:
+### I/O Library
 
-    ```assembly
-    1000          BRA       993         * Branch to address 993
-    ```
+The I/O library manages input and output operations, encompassing tasks like
+input validation, number conversions, and buffer preparation. To handle error
+detection, rather than relying on a global flag and the associated complexities
+of resetting its state during each decoding iteration, a more elegant solution
+is utilized where subroutines return `-1` (defined globally as **`ERROR`**) to
+indicate failure.
 
-9. You should do a line by line disassembly, displaying the following columns:
+In this configuration, it is up to the caller to check the
+subroutine's return value for errors after calling it and deal with that error
+by incorporating additional logic or ignoring it (if it's not fatal).
 
-    ```assembly
-    a- Memory location            b- Op-code            c- Operand
-    ```
+### Opcode Library
 
-10. When it completes the disassembly, the program should prompt the user to
-    disassemble another memory image or prompt the user to quit.
+The central task of the opcode library is to decode the opcode name and size info
+and relay the relevant bits to the EA library for decoding the operands. It works
+by extracting the first four bits from the current word being processed and
+utilizing a jump table to get to the appropriate subroutine to decode the opcode
+based on that bit pattern.
+
+### EA Library
+
+The EA library handles addressing mode decoding. When invoked from the opcode
+library, the EA library processes the first 3 bits representing the register and
+the subsequent three bits representing the mode. It employs a similar jump table
+as the opcode library, this time indexing based on the mode bits.
+
+The EA library returns the decoded addressing mode to the caller, which checks
+against the valid set of addressing modes the current opcode supports before
+continuing execution.
